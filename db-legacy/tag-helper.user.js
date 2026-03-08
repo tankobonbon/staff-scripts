@@ -6,6 +6,8 @@
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
 // @grant        none
+// @updateURL    https://github.com/tankobonbon/scripts/raw/refs/heads/main/db-legacy/tag-helper.user.js
+// @downloadURL  https://github.com/tankobonbon/scripts/raw/refs/heads/main/db-legacy/tag-helper.user.js
 // ==/UserScript==
 
 (function () {
