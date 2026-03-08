@@ -10,7 +10,7 @@ https://github.com/tankobonbon/staff-scripts/tree/main/db-legacy
 ---
 
 
-# What are these?
+# — What are these?
 
 These userscripts were made to ease the use of Shopify for Tankobonbon's database staff.
 
@@ -21,7 +21,35 @@ They **do not collect data** and only affect how the page appears in your browse
 
 ---
 
-# Available Userscripts
+# — Installation Guide
+
+1. Install the **Tampermonkey** browser extension.
+
+https://www.tampermonkey.net/
+
+Chrome users can install from the Chrome Web Store.
+
+---
+
+2. Enable **Allow User Scripts** in your browser if required.
+
+Guide:  
+https://www.tampermonkey.net/faq.php#Q209
+
+---
+
+3. Install the scripts listed below.
+
+Click the **Install link** under each userscript in the **Available Userscripts** section.
+
+Tampermonkey will open an installation screen.
+
+Click **Install**, then repeat for the remaining scripts.
+
+
+---
+
+# — Available Userscripts
 
 
 ## Add Tags
@@ -65,7 +93,7 @@ Features:
 - widens the product form layout
 - adds **Clear** and **Trim** buttons for the description field
 - adds quick tag buttons for **Cover not final** and **Lounge**
-- highlights 'Cover not final'/'Lounge'/'Class_Debut'/'Class_Standalone' more prominently if they're already tagged
+- highlights 'Cover not final' / 'Lounge' / 'Class_Debut' / 'Class_Standalone' more prominently if they're already tagged
 - moves **SKU / Barcode / Handle** fields together
 - adds **Autofill SKU → Barcode + Handle** button
 - adds a **Scroll to Top** button at the bottom of the page
@@ -87,35 +115,7 @@ Features:
 
 ---
 
-# Installation Guide
-
-1. Install the **Tampermonkey** browser extension.
-
-https://www.tampermonkey.net/
-
-Chrome users can install from the Chrome Web Store.
-
----
-
-2. Enable **Allow User Scripts** in your browser if required.
-
-Guide:  
-https://www.tampermonkey.net/faq.php#Q209
-
----
-
-3. Click the **Install link** under each script above.
-
-Tampermonkey will open an installation screen.
-
-Click **Install**.
-
-Repeat this for all scripts.
-
-
----
-
-# Usage
+# — Usage
 
 - Scripts load automatically when Shopify pages refresh.
 - If a script does not appear immediately, simply **refresh the page once**.
@@ -125,7 +125,7 @@ Repeat this for all scripts.
 
 ---
 
-# Updates
+# — Updates
 
 Scripts are distributed through this repository.
 
@@ -138,7 +138,7 @@ Tampermonkey → **Check for Userscript Updates**
 
 ---
 
-# Notes
+# — Notes
 
 Shopify occasionally changes its admin interface.
 
