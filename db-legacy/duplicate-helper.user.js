@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopify Duplicate Product - Uncheck Boxes + Widen Modal + Remove (Copy) + Title Number Tools + Set Active
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.0
 // @description  Widens Shopify duplicate modal, unchecks default boxes, removes trailing " (Copy)", auto-increments the last number in the title, adds number controls under the title field, and auto-selects Set as active.
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
