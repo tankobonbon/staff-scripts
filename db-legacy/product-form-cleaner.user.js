@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopify Product Edit - Clean Layout + Clear Description + Tag Quick Buttons
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Lightweight cleanup for Shopify product edit page + quick tag autofill buttons + move SKU/barcode above handle + top button + trim description end spaces + tag highlights
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
@@ -23,7 +23,22 @@
   const TAG_ACTIONS_ID = 'tm-tag-quick-actions';
   const TAG_BTN_CLASS = 'tm-tag-quick-btn';
   const TAG_CLEAR_CLASS = 'tm-tag-quick-clear';
-  const QUICK_TAGS = ['Cover not final', 'Lounge'];
+  const QUICK_TAGS = [
+    [{ label: 'Cover not final', value: 'Cover not final' }, { label: 'Lounge', value: 'Lounge' }],
+    [{ label: 'Single', value: 'Volume_Single' }],
+    [{ label: 'Manga', value: 'Type_Manga' }, { label: 'Novel', value: 'Type_Novel' }],
+    [
+      { label: 'Debut', value: 'Class_Debut' },
+      { label: 'Standalone', value: 'Class_Standalone' },
+      { label: 'Box Set', value: 'Class_Box Set' }
+    ],
+    [
+      { label: 'Paperback', value: 'Format_Trade Paperback' },
+      { label: 'Hardcover', value: 'Format_Hardcover' }
+    ]
+  ];
+
+  const TAG_GROUP_CLASS = 'tm-tag-quick-group';
 
   const MOVED_WRAP_CLASS = 'tm-shopify-moved-inventory-wrap';
   const SKU_ACTIONS_ID = 'tm-sku-copy-actions';
@@ -122,6 +137,13 @@
   .${TAG_CLEAR_CLASS}:hover {
     background: #fff5f5;
     border-color: #f97066;
+  }
+
+  .${TAG_GROUP_CLASS} {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    width: 100%;
   }
 
   .${MOVED_WRAP_CLASS} {
@@ -707,15 +729,25 @@
     const actions = document.createElement('div');
     actions.id = TAG_ACTIONS_ID;
 
-    QUICK_TAGS.forEach((tag) => {
-      actions.appendChild(
-        makeQuickTagButton(tag, () => autofillTagSearch(tag), TAG_BTN_CLASS)
-      );
+    QUICK_TAGS.forEach((group) => {
+      const row = document.createElement('div');
+      row.className = TAG_GROUP_CLASS;
+
+      group.forEach((tag) => {
+        row.appendChild(
+          makeQuickTagButton(tag.label, () => autofillTagSearch(tag.value), TAG_BTN_CLASS)
+        );
+      });
+
+      actions.appendChild(row);
     });
 
-    actions.appendChild(
+    const clearRow = document.createElement('div');
+    clearRow.className = TAG_GROUP_CLASS;
+    clearRow.appendChild(
       makeQuickTagButton('Clear', clearTagSearch, TAG_CLEAR_CLASS)
     );
+    actions.appendChild(clearRow);
 
     labelWrapper.insertAdjacentElement('afterend', actions);
   }
