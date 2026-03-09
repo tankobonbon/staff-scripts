@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopify Add Tags - Boxed Prefix Filter Buttons
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Keeps Shopify's native Add tags modal, makes it slightly taller, shrinks font, and adds boxed quick prefix filter buttons.
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
@@ -17,10 +17,18 @@
   const MODAL_CLASS = 'tm-shopify-tags-modal-v17';
   const CLOUD_BOX_CLASS = 'tm-shopify-tags-cloud-box-v17';
   const CLOUD_CLASS = 'tm-shopify-tags-cloud-v17';
+  const PRIORITY_BTN_CLASS = 'is-priority';
 
   const FIXED_FILTERS = [
     { label: 'Cover not final', value: 'Cover not final' },
     { label: 'Lounge', value: 'Lounge' },
+  ];
+
+  const PRIORITY_PREFIX_ORDER = [
+    'Adapted to',
+    'Age Rating',
+    'Publisher',
+    'Imprint',
   ];
 
   const PREFIX_FILTERS = [
@@ -37,7 +45,19 @@
     { label: 'Status', value: 'Status_' },
     { label: 'Type', value: 'Type_' },
     { label: 'Volume', value: 'Volume_' },
-  ].sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  ].sort((a, b) => {
+    const aPriority = PRIORITY_PREFIX_ORDER.indexOf(a.label);
+    const bPriority = PRIORITY_PREFIX_ORDER.indexOf(b.label);
+
+    const aIsPriority = aPriority !== -1;
+    const bIsPriority = bPriority !== -1;
+
+    if (aIsPriority && bIsPriority) return aPriority - bPriority;
+    if (aIsPriority) return -1;
+    if (bIsPriority) return 1;
+
+    return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+  });
 
   const FILTERS = [
     ...FIXED_FILTERS,
@@ -141,6 +161,24 @@
         gap: 0.42rem;
       }
 
+      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.${PRIORITY_BTN_CLASS} {
+        border-color: #b6d7ff;
+        background: #eaf4ff;
+        color: #184a8b;
+      }
+
+      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.${PRIORITY_BTN_CLASS}:hover {
+        background: #dcebff;
+        border-color: #9fc8ff;
+      }
+
+      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.${PRIORITY_BTN_CLASS}.is-active {
+        border-color: #6ea8fe;
+        background: #cfe4ff;
+        color: #123d73;
+        font-weight: 700;
+      }
+      
       .${MODAL_CLASS} .${CLOUD_CLASS}-btn {
         appearance: none;
         border: 1px solid var(--p-color-border, #c9cccf);
@@ -276,6 +314,10 @@
 
       if (item.label === 'Clear') {
         btn.classList.add('is-clear');
+      }
+
+      if (PRIORITY_PREFIX_ORDER.includes(item.label)) {
+        btn.classList.add(PRIORITY_BTN_CLASS);
       }
 
       btn.addEventListener('click', () => {
