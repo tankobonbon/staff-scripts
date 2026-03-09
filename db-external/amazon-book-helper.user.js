@@ -7,6 +7,8 @@
 // @match        https://www.amazon.co.jp/*
 // @run-at       document-idle
 // @grant        GM_setClipboard
+// @updateURL    https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/amazon-book-helper.user.js
+// @downloadURL  https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/amazon-book-helper.user.js
 // ==/UserScript==
 
 (function () {
