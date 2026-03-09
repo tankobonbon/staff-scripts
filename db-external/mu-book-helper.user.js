@@ -6,6 +6,8 @@
 // @match        https://www.mangaupdates.com/series/*
 // @run-at       document-idle
 // @grant        GM_setClipboard
+// @updateURL    https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/mu-book-helper.user.js
+// @downloadURL  https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/mu-book-helper.user.js
 // ==/UserScript==
 
 (function () {
