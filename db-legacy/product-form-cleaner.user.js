@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopify Product Edit - Clean Layout + Clear Description + Tag Quick Buttons
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Lightweight cleanup for Shopify product edit page + quick tag autofill buttons + move SKU/barcode above handle + top button + trim description end spaces + tag highlights
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
@@ -25,12 +25,14 @@
   const TAG_CLEAR_CLASS = 'tm-tag-quick-clear';
   const QUICK_TAGS = [
     [{ label: 'Cover not final', value: 'Cover not final' }, { label: 'Lounge', value: 'Lounge' }],
-    [{ label: 'Single', value: 'Volume_Single' }],
-    [{ label: 'Manga', value: 'Type_Manga' }, { label: 'Novel', value: 'Type_Novel' }],
+    [{ label: 'Single', value: 'Volume_Single' }, { label: 'Omnibus', value: 'Volume_Omnibus' }],
+    [{ label: 'Manga', value: 'Type_Manga' }, { label: 'Novel', value: 'Type_Novel' }, { label: 'Manhwa', value: 'Type_Manhwa' }],
     [
       { label: 'Debut', value: 'Class_Debut' },
       { label: 'Standalone', value: 'Class_Standalone' },
-      { label: 'Box Set', value: 'Class_Box Set' }
+      { label: 'Box Set', value: 'Class_Box Set' },
+      { label: 'Final Volume', value: 'Class_Final Volume' },
+      { label: 'Extra', value: 'Class_Extra' }
     ],
     [
       { label: 'Paperback', value: 'Format_Trade Paperback' },
