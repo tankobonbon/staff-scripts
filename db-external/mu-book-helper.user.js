@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MangaUpdates Helper - Metafield copy + Amazon JP button
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Adds a compact helper box above the title on MangaUpdates series pages for copying metadata and opening Amazon JP search.
 // @match        https://www.mangaupdates.com/series/*
 // @run-at       document-idle
@@ -90,7 +90,23 @@
   }
 
   function toShopifyGenreTags(genres) {
-    return genres.map(g => `Genre_${g}`).join(',');
+    const finalGenres = [...genres];
+
+      if (
+          (finalGenres.includes('Yaoi') || finalGenres.includes('Shounen Ai')) &&
+          !finalGenres.includes("Boys' Love")
+      ) {
+          finalGenres.push("Boys' Love");
+      }
+
+      if (
+          (finalGenres.includes('Yuri') || finalGenres.includes('Shoujo Ai')) &&
+          !finalGenres.includes("Girls' Love")
+      ) {
+          finalGenres.push("Girls' Love");
+      }
+
+    return finalGenres.map(g => `Genre_${g}`).join(',');
   }
 
   function toShopifyDemographyTag(demography) {
@@ -129,13 +145,29 @@
     const allGenres = getGenres();
     const demography = getDemography(allGenres);
     const genreOnly = getGenreOnly(allGenres);
+    const finalGenres = [...genreOnly];
+
+      if (
+          (finalGenres.includes('Yaoi') || finalGenres.includes('Shounen Ai')) &&
+          !finalGenres.includes("Boys' Love")
+      ) {
+          finalGenres.push("Boys' Love");
+      }
+
+      if (
+          (finalGenres.includes('Yuri') || finalGenres.includes('Shoujo Ai')) &&
+          !finalGenres.includes("Girls' Love")
+      ) {
+          finalGenres.push("Girls' Love");
+      }
+
     const status = mapStatus(getStatusRaw());
 
     return {
       title,
       type,
       originalTitle,
-      genresPipe: genreOnly.join('|'),
+      genresPipe: finalGenres.join('|'),
       genresShopify: toShopifyGenreTags(genreOnly),
       demography,
       demographyTag: toShopifyDemographyTag(demography),
