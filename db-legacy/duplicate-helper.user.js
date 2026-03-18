@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopify Duplicate Product - Uncheck Boxes + Widen Modal + Remove (Copy) + Title Number Tools + Set Active
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Widens Shopify duplicate modal, unchecks default boxes, removes trailing " (Copy)", auto-increments the last number in the title, adds number controls under the title field, and auto-selects Set as active.
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
@@ -21,7 +21,9 @@
     'CopyTranslations',
   ]);
 
+  const TARGET_VALUES_ARRAY = [...TARGET_VALUES];
   const ACTIVE_STATUS_VALUE = 'ACTIVE';
+
   const STYLE_ID = 'tm-shopify-duplicate-modal-width-tools';
   const COPY_SUFFIX_REGEX = /\s\(Copy\)$/;
   const TOOLBAR_ID = 'tm-title-number-toolbar';
@@ -99,9 +101,15 @@
     }
   }
 
-  function dispatchValueEvents(input) {
-    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+  function dispatchValueEvents(element) {
+    element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+  }
+
+  function dispatchChoiceEvents(element) {
+    element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    element.dispatchEvent(new Event('click', { bubbles: true, composed: true }));
   }
 
   function getDuplicateModal() {
@@ -130,34 +138,247 @@
     );
   }
 
-  function uncheckTargetBoxes(modal) {
-    if (!modal) return;
+  function getChoiceLists(modal) {
+    return [...modal.querySelectorAll('s-choice-list')];
+  }
 
-    const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+  function getDuplicateChoiceList(modal) {
+    return getChoiceLists(modal).find((list) =>
+      (list.getAttribute('label') || '').includes('Duplicate the selected product details')
+    );
+  }
 
-    checkboxes.forEach((checkbox) => {
-      if (!TARGET_VALUES.has(checkbox.value)) return;
+  function getStatusChoiceList(modal) {
+    return getChoiceLists(modal).find((list) =>
+      (list.getAttribute('label') || '').includes('Product status')
+    );
+  }
 
-      if (checkbox.checked) {
-        checkbox.click();
-        console.log('[Tampermonkey] Unchecked:', checkbox.value);
+  function getChoiceValue(choice) {
+    return choice?.getAttribute('value') || choice?.value || '';
+  }
+
+  function clickDeep(element) {
+    if (!element) return false;
+
+    const candidates = [
+      element.shadowRoot?.querySelector('button'),
+      element.shadowRoot?.querySelector('input'),
+      element.shadowRoot?.querySelector('[role="radio"]'),
+      element.shadowRoot?.querySelector('[role="checkbox"]'),
+      element.querySelector('button'),
+      element.querySelector('input'),
+      element.querySelector('[role="radio"]'),
+      element.querySelector('[role="checkbox"]'),
+      element,
+    ].filter(Boolean);
+
+    for (const candidate of candidates) {
+      try {
+        candidate.click();
+        return true;
+      } catch {}
+    }
+
+    return false;
+  }
+
+  function getListSelectedValues(list) {
+    if (!list) return [];
+
+    const rawCandidates = [
+      list.value,
+      list.values,
+      list.selected,
+      list.selectedValues,
+      list.modelValue,
+    ];
+
+    for (const raw of rawCandidates) {
+      if (Array.isArray(raw)) {
+        return raw.map(String);
       }
+      if (typeof raw === 'string' && raw) {
+        return [raw];
+      }
+      if (raw && typeof raw === 'object') {
+        try {
+          if (Array.isArray(raw.value)) return raw.value.map(String);
+        } catch {}
+      }
+    }
+
+    const attrCandidates = [
+      list.getAttribute('value'),
+      list.getAttribute('values'),
+      list.getAttribute('selected'),
+      list.getAttribute('selected-values'),
+    ];
+
+    for (const raw of attrCandidates) {
+      if (!raw) continue;
+      if (raw.includes(',')) {
+        return raw.split(',').map((v) => v.trim()).filter(Boolean);
+      }
+      return [raw];
+    }
+
+    const selectedChoices = [...list.querySelectorAll('s-choice')].filter((choice) => {
+      const sr = choice.shadowRoot;
+      return (
+        choice.hasAttribute('selected') ||
+        choice.hasAttribute('checked') ||
+        choice.getAttribute('aria-checked') === 'true' ||
+        choice.getAttribute('aria-selected') === 'true' ||
+        sr?.querySelector('[aria-checked="true"]') ||
+        sr?.querySelector('[aria-selected="true"]') ||
+        sr?.querySelector('input:checked')
+      );
     });
+
+    return selectedChoices.map(getChoiceValue).filter(Boolean);
+  }
+
+  function setListValue(list, value) {
+    if (!list) return false;
+
+    let success = false;
+
+    const trySet = (prop, val) => {
+      try {
+        list[prop] = val;
+        success = true;
+      } catch {}
+    };
+
+    trySet('value', value);
+    trySet('values', Array.isArray(value) ? value : [value]);
+    trySet('selected', value);
+    trySet('selectedValues', Array.isArray(value) ? value : [value]);
+    trySet('modelValue', value);
+
+    try {
+      if (Array.isArray(value)) {
+        list.setAttribute('values', value.join(','));
+        list.setAttribute('selected-values', value.join(','));
+      } else {
+        list.setAttribute('value', String(value));
+        list.setAttribute('selected', String(value));
+      }
+      success = true;
+    } catch {}
+
+    dispatchChoiceEvents(list);
+    return success;
+  }
+
+  function setChoiceSelected(choice, selected) {
+    if (!choice) return false;
+
+    let success = false;
+
+    const props = ['checked', 'selected', 'value', 'pressed', 'active'];
+
+    for (const prop of props) {
+      try {
+        if (prop === 'value') continue;
+        choice[prop] = selected;
+        success = true;
+      } catch {}
+    }
+
+    try {
+      if (selected) {
+        choice.setAttribute('selected', '');
+        choice.setAttribute('checked', '');
+        choice.setAttribute('aria-checked', 'true');
+        choice.setAttribute('aria-selected', 'true');
+      } else {
+        choice.removeAttribute('selected');
+        choice.removeAttribute('checked');
+        choice.setAttribute('aria-checked', 'false');
+        choice.setAttribute('aria-selected', 'false');
+      }
+      success = true;
+    } catch {}
+
+    try {
+      const sr = choice.shadowRoot;
+      const innerInput = sr?.querySelector('input');
+      if (innerInput) {
+        innerInput.checked = selected;
+        dispatchChoiceEvents(innerInput);
+        success = true;
+      }
+    } catch {}
+
+    dispatchChoiceEvents(choice);
+    return success;
+  }
+
+  function uncheckTargetBoxes(modal) {
+    if (!modal) return false;
+
+    const list = getDuplicateChoiceList(modal);
+    if (!list) return false;
+
+    let changed = false;
+
+    try {
+      const selectedValues = getListSelectedValues(list);
+      const filteredValues = selectedValues.filter((value) => !TARGET_VALUES.has(value));
+
+      if (
+        selectedValues.length &&
+        filteredValues.length !== selectedValues.length
+      ) {
+        setListValue(list, filteredValues);
+        changed = true;
+      }
+    } catch {}
+
+    const choices = [...list.querySelectorAll('s-choice')];
+    for (const choice of choices) {
+      const value = getChoiceValue(choice);
+      if (!TARGET_VALUES.has(value)) continue;
+
+      setChoiceSelected(choice, false);
+      clickDeep(choice);
+      setChoiceSelected(choice, false);
+      changed = true;
+    }
+
+    dispatchChoiceEvents(list);
+    return changed;
   }
 
   function selectActiveStatus(modal) {
     if (!modal) return false;
 
-    const activeRadio = modal.querySelector(
-      `input[type="radio"][value="${ACTIVE_STATUS_VALUE}"]`
-    );
+    const list = getStatusChoiceList(modal);
+    if (!list) return false;
 
-    if (!activeRadio) return false;
-    if (activeRadio.checked) return false;
+    let changed = false;
 
-    activeRadio.click();
-    console.log('[Tampermonkey] Selected product status: ACTIVE');
-    return true;
+    setListValue(list, ACTIVE_STATUS_VALUE);
+
+    const choices = [...list.querySelectorAll('s-choice')];
+    for (const choice of choices) {
+      const value = getChoiceValue(choice);
+      if (!value) continue;
+
+      const shouldSelect = value === ACTIVE_STATUS_VALUE;
+      setChoiceSelected(choice, shouldSelect);
+
+      if (shouldSelect) {
+        clickDeep(choice);
+        setChoiceSelected(choice, true);
+        changed = true;
+      }
+    }
+
+    dispatchChoiceEvents(list);
+    return changed;
   }
 
   function removeCopySuffix(input) {
@@ -171,7 +392,6 @@
 
     setNativeValue(input, newValue);
     dispatchValueEvents(input);
-    console.log('[Tampermonkey] Removed trailing " (Copy)" from title');
     return true;
   }
 
@@ -285,12 +505,8 @@
     if (!modal || !input) return;
     if (modal.dataset.tmAutoIncrementDone === '1') return;
 
-    const changed = incrementTargetNumber(input, 1);
+    incrementTargetNumber(input, 1);
     modal.dataset.tmAutoIncrementDone = '1';
-
-    if (changed) {
-      console.log('[Tampermonkey] Auto-incremented last number in title');
-    }
   }
 
   function createButton(label, onClick) {
@@ -378,23 +594,40 @@
     document.querySelectorAll(`#${TOOLBAR_ID}`).forEach((el) => el.remove());
   }
 
-  function runEnhancements() {
+  function enhanceModal(modal) {
+    if (!modal) return;
+
     injectStyles();
 
+    const input = getTitleInput(modal);
+    if (input) {
+      removeCopySuffix(input);
+      autoIncrementOnce(modal, input);
+      injectToolbar(modal, input);
+    }
+
+    uncheckTargetBoxes(modal);
+    selectActiveStatus(modal);
+  }
+
+  function runEnhancements() {
     const modal = getDuplicateModal();
     if (!modal) {
       resetModalStateWhenClosed();
       return;
     }
 
-    const input = getTitleInput(modal);
-    if (!input) return;
+    enhanceModal(modal);
 
-    uncheckTargetBoxes(modal);
-    selectActiveStatus(modal);
-    removeCopySuffix(input);
-    autoIncrementOnce(modal, input);
-    injectToolbar(modal, input);
+    clearTimeout(modal.__tmRetry1);
+    clearTimeout(modal.__tmRetry2);
+    clearTimeout(modal.__tmRetry3);
+    clearTimeout(modal.__tmRetry4);
+
+    modal.__tmRetry1 = setTimeout(() => enhanceModal(modal), 50);
+    modal.__tmRetry2 = setTimeout(() => enhanceModal(modal), 150);
+    modal.__tmRetry3 = setTimeout(() => enhanceModal(modal), 350);
+    modal.__tmRetry4 = setTimeout(() => enhanceModal(modal), 700);
   }
 
   runEnhancements();
