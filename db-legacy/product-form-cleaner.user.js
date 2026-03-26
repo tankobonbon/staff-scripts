@@ -835,6 +835,15 @@
                 text: '#14532D',
             });
         }
+
+      if (text.includes('New License')) {
+            paintTag(tagNode, {
+                bg: '#BFDBFE',
+                border: '#3B82F6',
+                text: '#1E3A8A',
+    });
+    return;
+}
     });
   }
 
