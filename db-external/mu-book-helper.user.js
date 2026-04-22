@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MangaUpdates Helper - Metafield copy + Amazon JP button
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Adds a compact helper box above the title on MangaUpdates series pages for copying metadata and opening Amazon JP search.
 // @match        https://www.mangaupdates.com/series/*
 // @run-at       document-idle
@@ -138,6 +138,31 @@
     return `https://www.amazon.co.jp/s?k=${encodeURIComponent(originalTitle)}&i=stripbooks`;
   }
 
+  function buildCmoaJpUrl(originalTitle) {
+    if (!originalTitle) return '';
+    return `https://www.cmoa.jp/search/result/?header_word=${encodeURIComponent(originalTitle)}`;
+  }
+
+  function buildNovelUpdatesUrl(originalTitle) {
+    if (!originalTitle) return '';
+    return `https://www.novelupdates.com/series-finder/?sf=1&sh=${encodeURIComponent(originalTitle)}`;
+  }
+
+  function buildKyoboImgUrl(originalTitle, type) {
+    if (!originalTitle || !/manhwa/i.test(type)) return '';
+    return `https://www.google.com/search?q=${encodeURIComponent(`site:kyobobook.co.kr ${originalTitle}`)}`;
+  }
+
+  function buildAnilistMangaUrl(originalTitle) {
+    if (!originalTitle) return '';
+    return `https://anilist.co/search/manga?search=${encodeURIComponent(originalTitle)}`;
+  }
+
+  function getMuId() {
+    const match = window.location.pathname.match(/^\/series\/([^/]+)/i);
+    return match ? match[1] : '';
+  }
+
   function buildPacket() {
     const title = getTitle();
     const type = getType();
@@ -173,7 +198,12 @@
       demographyTag: toShopifyDemographyTag(demography),
       status,
       statusTag: toShopifyStatusTag(status),
-      amazonJpUrl: buildAmazonJpUrl(originalTitle)
+      muId: getMuId(),
+      amazonJpUrl: buildAmazonJpUrl(originalTitle),
+      cmoaJpUrl: buildCmoaJpUrl(originalTitle),
+      novelUpdatesUrl: buildNovelUpdatesUrl(originalTitle),
+      kyoboImgUrl: buildKyoboImgUrl(originalTitle, type),
+      anilistMangaUrl: buildAnilistMangaUrl(originalTitle)
     };
   }
 
@@ -306,6 +336,7 @@
     });
 
     const buttons = [
+      ['Copy MU ID', 'copy-mu-id'],
       ['Copy Title', 'copy-title'],
       ['Copy Original Title', 'copy-original-title'],
       ['Copy Genres', 'copy-genres'],
@@ -313,7 +344,11 @@
       ['Copy Demography', 'copy-demography'],
       ['Copy Demography Tag', 'copy-demography-shopify'],
       ['Copy Status Tag', 'copy-status-shopify'],
-      ['Amazon JP', 'search-amazon-jp']
+      ['Amazon JP', 'search-amazon-jp'],
+      ['CMOA JP', 'search-cmoa-jp'],
+      ['NovelUpdates', 'search-novelupdates'],
+      ['Kyobobook (img)', 'search-kyobo-img'],
+      ['Anilist Manga', 'search-anilist-manga']
     ];
 
     buttons.forEach(([label, action, wide]) => {
@@ -355,7 +390,58 @@
         return;
       }
 
+      if (action === 'search-cmoa-jp') {
+        if (packet.cmoaJpUrl) {
+          window.open(packet.cmoaJpUrl, '_blank', 'noopener,noreferrer');
+          status.textContent = 'CMOA JP search opened.';
+        } else {
+          status.textContent = 'No original title found.';
+        }
+        return;
+      }
+
+      if (action === 'search-cmoa-jp') {
+        if (packet.cmoaJpUrl) {
+          window.open(packet.cmoaJpUrl, '_blank', 'noopener,noreferrer');
+          status.textContent = 'CMOA JP search opened.';
+        } else {
+          status.textContent = 'No original title found.';
+        }
+        return;
+      }
+
+      if (action === 'search-novelupdates') {
+        if (packet.novelUpdatesUrl) {
+          window.open(packet.novelUpdatesUrl, '_blank', 'noopener,noreferrer');
+          status.textContent = 'NovelUpdates search opened.';
+        } else {
+          status.textContent = 'No original title found.';
+        }
+        return;
+      }
+
+      if (action === 'search-kyobo-img') {
+        if (packet.kyoboImgUrl) {
+          window.open(packet.kyoboImgUrl, '_blank', 'noopener,noreferrer');
+          status.textContent = 'Kyobobook image search opened.';
+        } else {
+          status.textContent = 'Kyobobook image search is only available for manhwa with an original title.';
+        }
+        return;
+      }
+
+      if (action === 'search-anilist-manga') {
+        if (packet.anilistMangaUrl) {
+          window.open(packet.anilistMangaUrl, '_blank', 'noopener,noreferrer');
+          status.textContent = 'AniList manga search opened.';
+        } else {
+          status.textContent = 'No original title found.';
+        }
+        return;
+      }
+
       const map = {
+        'copy-mu-id': packet.muId,
         'copy-title': packet.title,
         'copy-original-title': packet.originalTitle,
         'copy-genres': packet.genresPipe,
