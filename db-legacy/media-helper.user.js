@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopify Media - Auto Open Add from URL
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Auto-opens Shopify's Add media from URL when Select existing is used, with a best-effort Add via URL shortcut.
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
@@ -13,12 +13,12 @@
 (function () {
   'use strict';
 
-  const STYLE_ID = 'tm-shopify-media-url-auto-style';
-  const BTN_ID = 'tm-shopify-add-via-url-btn';
+  const STYLE_ID = 'tm-shopify-media-url-style';
+  const RING_CLASS = 'tm-add-url-ring';
 
-  let modalWatchTimer = null;
-  let modalWatchDeadline = 0;
-  let pendingAutoOpen = false;
+  let timer = null;
+  let tries = 0;
+  let armed = false;
 
   function normalizeText(text) {
     return (text || '').replace(/\s+/g, ' ').trim();
@@ -27,7 +27,7 @@
   function isVisible(el) {
     if (!el || !el.isConnected) return false;
     const rect = el.getBoundingClientRect();
-    const style = window.getComputedStyle(el);
+    const style = getComputedStyle(el);
     return (
       rect.width > 0 &&
       rect.height > 0 &&
@@ -36,55 +36,42 @@
     );
   }
 
-  function fireMouseSequence(el) {
-    if (!el) return;
-
-    const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
-    for (const type of events) {
-      el.dispatchEvent(
-        new MouseEvent(type, {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-        })
-      );
-    }
-
-    if (typeof el.click === 'function') {
-      el.click();
-    }
-  }
-
   function addStyles() {
     if (document.getElementById(STYLE_ID)) return;
 
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      #${BTN_ID} {
+      .tm-hide-upload-new {
+        display: none !important;
+      }
+
+      .tm-select-existing-tight {
+        width: auto !important;
         display: inline-flex !important;
-        margin-left: 0.45rem !important;
+        align-items: center !important;
       }
 
-      #${BTN_ID} button {
-        cursor: pointer !important;
+      .tm-select-existing-tight * {
+        pointer-events: auto !important;
       }
 
-      .tm-shopify-url-popover .Polaris-Popover__Content {
-        min-width: 32rem !important;
-        width: 32rem !important;
-        height: auto !important;
-      }
-
-      .tm-shopify-url-popover .Polaris-Popover__Section {
-        padding: 0.9rem 1rem !important;
-      }
-
-      .tm-shopify-url-popover .Polaris-TextField {
-        min-width: 24rem !important;
+      .${RING_CLASS} {
+        outline: 3px solid #ff8c00 !important;
+        outline-offset: 2px !important;
+        border-radius: 6px !important;
       }
     `;
     document.head.appendChild(style);
+  }
+
+  function clearRing() {
+    document.querySelectorAll('.' + RING_CLASS).forEach(el => el.classList.remove(RING_CLASS));
+  }
+
+  function getUploadNewElement() {
+    const candidates = Array.from(document.querySelectorAll('s-internal-button, button, a, span, div'));
+    return candidates.find((el) => normalizeText(el.textContent) === 'Upload new' && isVisible(el)) || null;
   }
 
   function getSelectExistingElement() {
@@ -92,196 +79,133 @@
     return candidates.find((el) => normalizeText(el.textContent) === 'Select existing' && isVisible(el)) || null;
   }
 
-  function getMediaActionsContainer() {
-    const selectExisting = getSelectExistingElement();
-    if (!selectExisting) return null;
-    return selectExisting.parentElement?.parentElement || selectExisting.parentElement || null;
+  function tightenActions() {
+    const upload = getUploadNewElement();
+    const select = getSelectExistingElement();
+
+    if (upload) {
+      const uploadWrap =
+        upload.closest('._Link_1oych_34') ||
+        upload.parentElement ||
+        upload;
+      uploadWrap.classList.add('tm-hide-upload-new');
+    }
+
+    if (select) {
+      const selectWrap =
+        select.closest('._Link_1oych_34') ||
+        select.parentElement ||
+        select;
+      selectWrap.classList.add('tm-select-existing-tight');
+    }
   }
 
-  function injectHelperButton() {
-    if (document.getElementById(BTN_ID)) return;
-
-    const container = getMediaActionsContainer();
-    if (!container) return;
-
-    const wrapper = document.createElement('div');
-    wrapper.id = BTN_ID;
-    wrapper.innerHTML = `
-      <button class="Polaris-Button Polaris-Button--pressable Polaris-Button--variantSecondary Polaris-Button--sizeMicro Polaris-Button--textAlignCenter" type="button">
-        <span class="Polaris-Text--root Polaris-Text--bodySm Polaris-Text--medium">Add via URL</span>
-      </button>
-    `;
-
-    wrapper.querySelector('button')?.addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      pendingAutoOpen = true;
-      startWatchingForModal();
-
-      const selectExisting = getSelectExistingElement();
-      if (selectExisting) {
-        tryOpenSelectExisting(selectExisting);
-      }
-    });
-
-    container.appendChild(wrapper);
-  }
-
-  function getVisibleSelectFileModal() {
-    const dialogs = Array.from(document.querySelectorAll('.Polaris-Modal-Dialog'));
-    return dialogs.find((dialog) => {
+  function getSelectFileModal() {
+    return [...document.querySelectorAll('.Polaris-Modal-Dialog')].find(dialog => {
       if (!isVisible(dialog)) return false;
-      const heading = dialog.querySelector('h2');
-      return heading && normalizeText(heading.textContent) === 'Select file';
+      const h2 = dialog.querySelector('h2');
+      return h2 && normalizeText(h2.textContent) === 'Select file';
     }) || null;
   }
 
-  function getUrlToggle(modal) {
+  function getActivator(modal) {
     if (!modal) return null;
 
-    return Array.from(modal.querySelectorAll('button[aria-label="Add from URL"]')).find(isVisible) || null;
+    return [...modal.querySelectorAll('div[aria-haspopup="dialog"]')].find(div => {
+      if (!isVisible(div)) return false;
+      return !!div.querySelector('s-internal-button[accessibilitylabel="Add from URL"]');
+    }) || null;
+  }
+
+  function getInnerChevron(modal) {
+    const activator = getActivator(modal);
+    return activator?.querySelector('s-internal-button[accessibilitylabel="Add from URL"]') || null;
   }
 
   function getUrlInput() {
-    return Array.from(document.querySelectorAll('.Polaris-Popover input[type="url"]')).find(isVisible) || null;
-  }
-
-  function markPopover() {
-    const input = getUrlInput();
-    const popover = input?.closest('.Polaris-Popover');
-    if (popover) popover.classList.add('tm-shopify-url-popover');
+    return [...document.querySelectorAll('.Polaris-Popover input[type="url"], input[type="url"][placeholder="https://"]')]
+      .find(isVisible) || null;
   }
 
   function focusUrlInput() {
     const input = getUrlInput();
     if (!input) return false;
-
-    markPopover();
     input.focus();
     input.select?.();
     return true;
   }
 
-  function openUrlInsideModal() {
-    const modal = getVisibleSelectFileModal();
+  function tryOpen() {
+    const modal = getSelectFileModal();
     if (!modal) return false;
 
-    if (focusUrlInput()) {
-      modal.dataset.tmUrlAlreadyOpened = '1';
-      return true;
-    }
+    if (focusUrlInput()) return true;
 
-    const toggle = getUrlToggle(modal);
-    if (!toggle) return false;
+    const activator = getActivator(modal);
+    const inner = getInnerChevron(modal);
+    if (!activator) return false;
 
-    if (modal.dataset.tmUrlAlreadyOpened !== '1') {
-      fireMouseSequence(toggle);
-      modal.dataset.tmUrlAlreadyOpened = '1';
-      return false;
-    }
+    clearRing();
+    activator.classList.add(RING_CLASS);
+
+    try { activator.focus({ preventScroll: true }); } catch {}
+    try { activator.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch {}
+    try { activator.click(); } catch {}
+    try { inner?.click(); } catch {}
 
     return false;
   }
 
-  function stopWatchingForModal() {
-    if (modalWatchTimer) {
-      clearInterval(modalWatchTimer);
-      modalWatchTimer = null;
-    }
+  function stop() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    tries = 0;
+    armed = false;
   }
 
-  function startWatchingForModal() {
-    stopWatchingForModal();
+  function start() {
+    stop();
+    armed = true;
+    tries = 0;
 
-    modalWatchDeadline = Date.now() + 8000;
+    timer = setInterval(() => {
+      tries += 1;
 
-    modalWatchTimer = setInterval(() => {
-      if (Date.now() > modalWatchDeadline) {
-        stopWatchingForModal();
-        pendingAutoOpen = false;
+      if (tryOpen()) {
+        stop();
         return;
       }
 
-      const modal = getVisibleSelectFileModal();
-      if (!modal) return;
-
-      if (focusUrlInput()) {
-        modal.dataset.tmUrlAlreadyOpened = '1';
-        stopWatchingForModal();
-        pendingAutoOpen = false;
-        return;
+      if (tries >= 15) {
+        stop();
       }
-
-      openUrlInsideModal();
-
-      setTimeout(() => {
-        if (focusUrlInput()) {
-          const visibleModal = getVisibleSelectFileModal();
-          if (visibleModal) visibleModal.dataset.tmUrlAlreadyOpened = '1';
-          stopWatchingForModal();
-          pendingAutoOpen = false;
-        }
-      }, 180);
     }, 180);
   }
 
-  function tryOpenSelectExisting(el) {
-    const attempts = [
-      el,
-      el.closest('button'),
-      el.closest('a'),
-      el.closest('[role="button"]'),
-      el.parentElement,
-      el.parentElement?.parentElement,
-    ].filter(Boolean);
-
-    for (const target of attempts) {
-      fireMouseSequence(target);
-    }
-  }
-
-  function handlePossibleSelectExistingClick(event) {
+  function handleSelectExistingClick(event) {
     const path = event.composedPath ? event.composedPath() : [];
-    const hit = path.find((node) => {
-      return node instanceof Element && normalizeText(node.textContent) === 'Select existing';
-    });
+    const hit = path.find(node =>
+      node instanceof Element &&
+      normalizeText(node.textContent) === 'Select existing'
+    );
 
     if (!hit) return;
 
-    pendingAutoOpen = true;
-
-    setTimeout(() => {
-      startWatchingForModal();
-    }, 60);
+    setTimeout(() => start(), 250);
   }
 
-  function watchDom() {
-    const observer = new MutationObserver(() => {
-      injectHelperButton();
-
-      if (!pendingAutoOpen) return;
-
-      const modal = getVisibleSelectFileModal();
-      if (!modal) return;
-
-      if (!modal.dataset.tmUrlAlreadyOpened) {
-        startWatchingForModal();
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+  function initObserver() {
+    new MutationObserver(() => {
+      tightenActions();
+      if (armed) tryOpen();
+    }).observe(document.body, { childList: true, subtree: true });
   }
 
   function init() {
     addStyles();
-    injectHelperButton();
-    watchDom();
-
-    document.addEventListener('click', handlePossibleSelectExistingClick, true);
+    tightenActions();
+    initObserver();
+    document.addEventListener('click', handleSelectExistingClick, true);
   }
 
   init();
