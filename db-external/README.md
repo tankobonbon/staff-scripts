@@ -69,6 +69,34 @@ Amazon Region Behavior
 
 ---
 
+
+## Anilist Tags Helper
+
+Install (make sure you have Tampermonkey already): https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/anilist-tags-helper.user.js
+
+Features:
+
+- Adds a floating helper button on AniList anime and manga pages.
+- Automatically fetches all tags directly from AniList’s API, including: Regular tags (e.g. Urban Fantasy, Demons, Super Power), Spoiler tags (e.g. Cosmic Horror, Sadism, Cult, etc.)
+- Provides one-click copy options for: Line-separated format (for structured input), Comma-separated format (for quick pasting / display)
+- Cleans and normalizes tag formatting (no duplicates, trimmed spacing).
+- Works consistently across both anime and manga entries.
+
+Shopify Integration:
+
+- Adds an inline “Paste AniList tags” helper inside the Themes metafield popover on collection pages.
+- Reads tags directly from clipboard and: Automatically adds each tag as a separate list item, Clicks “Add item” as needed, Skips duplicates if already present
+- Prevents the popover from closing while interacting with the helper.
+
+Instructions:
+- Open any AniList page (anime or manga).
+- Click Copy AniList Tags.
+- Go to the corresponding Shopify collection.
+- Open the Themes metafield.
+- Click Paste AniList tags.
+
+---
+
 # — Usage
 
 - Scripts load automatically when external pages refresh.
