@@ -82,8 +82,7 @@ Install (make sure you have Tampermonkey already): https://github.com/tankobonbo
 
 Features:
 
-- Adds an **Add from URL** button.
-- Automatically opens the URL input field when selecting **Add from URL** or **Select Existing**.
+- Automatically opens the URL input field when selecting **Select Existing**.
 
 
 ---
