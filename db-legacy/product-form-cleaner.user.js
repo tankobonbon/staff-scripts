@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopify Product Edit - Clean Layout + Clear Description + Tag Quick Buttons
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @description  Lightweight cleanup for Shopify product edit page + quick tag autofill buttons + move SKU/barcode above handle + top button + trim description end spaces + tag highlights
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
@@ -418,7 +418,17 @@
   }
 
   function hidePublishingSection() {
-    hideSectionByHeadingText('Publishing');
+      const publishingSections = document.querySelectorAll('s-internal-section[heading="Publishing"]');
+
+      publishingSections.forEach((section) => {
+          const wrapper =
+                section.closest('.Polaris-Box') ||
+                section.parentElement;
+
+          if (wrapper) {
+              markHidden(wrapper);
+          }
+      });
   }
 
   function hideSalesSection() {
