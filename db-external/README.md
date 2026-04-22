@@ -37,10 +37,11 @@ https://github.com/tankobonbon/staff-scripts/tree/main/db-external
 
 Install (make sure you have Tampermonkey already): https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/mu-book-helper.user.js
 
-- Adds one-click copy buttons above the series title for Title, Original Title, Genres, and Demography.
+- Adds one-click copy buttons above the series title for ID, Title, Original Title, Genres, and Demography.
 - Automatically selects the correct Original Title based on the work type (Korean for Manhwa, Chinese for Manhua).
 - Formats copied Genres, Demography, and Status with Shopify tag prefixes for quick pasting.
 - Includes a shortcut button that opens an Amazon Japan search using the original title.
+- Includes a shortcut button for NovelUpdates, CMOA, Anilist, Kyobobook
 
 Notes
 
@@ -77,7 +78,7 @@ Install (make sure you have Tampermonkey already): https://github.com/tankobonbo
 Features:
 
 - Adds a floating helper button on AniList anime and manga pages.
-- Automatically fetches all tags directly from AniList’s API, including: Regular tags (e.g. Urban Fantasy, Demons, Super Power), Spoiler tags (e.g. Cosmic Horror, Sadism, Cult, etc.)
+- Automatically fetches all tags directly from AniList’s API, including: ID, Regular tags (e.g. Urban Fantasy, Demons, Super Power), Spoiler tags (e.g. Cosmic Horror, Sadism, Cult, etc.)
 - Provides one-click copy options for: Line-separated format (for structured input), Comma-separated format (for quick pasting / display)
 - Cleans and normalizes tag formatting (no duplicates, trimmed spacing).
 - Works consistently across both anime and manga entries.
