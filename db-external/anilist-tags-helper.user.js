@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         AniList Tags → Shopify Themes Helper
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Copy all AniList tags, including spoilers, then paste them into Shopify collection Themes list metafield.
+// @version      1.1
+// @description  Copy AniList tags or AniList ID, then paste tags into Shopify collection Themes list metafield.
 // @match        https://anilist.co/anime/*
 // @match        https://anilist.co/manga/*
 // @match        https://admin.shopify.com/store/*/collections/*
 // @match        https://admin.shopify.com/store/*/collection/*
+// @match        https://admin.shopify.com/store/*/products/*
 // @run-at       document-idle
 // @grant        GM_setClipboard
 // @updateURL    https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/anilist-tags-helper.user.js
@@ -136,8 +137,8 @@
       }
     `;
 
-      document.head.appendChild(style);
-  }
+        document.head.appendChild(style);
+    }
 
     function setStatus(message) {
         const status = document.querySelector(`#${PANEL_ID} .tm-status`);
@@ -156,9 +157,9 @@
       <span class="tm-status"></span>
     `;
 
-      document.body.appendChild(panel);
-      return panel;
-  }
+        document.body.appendChild(panel);
+        return panel;
+    }
 
     function getAniListMediaId() {
         const match = location.pathname.match(/\/(?:anime|manga)\/(\d+)/i);
@@ -181,27 +182,27 @@
       }
     `;
 
-      const res = await fetch('https://graphql.anilist.co', {
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-              query,
-              variables: { id }
-          })
-      });
+        const res = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                query,
+                variables: { id }
+            })
+        });
 
-      const json = await res.json();
-      const tags = json?.data?.media?.tags || [];
+        const json = await res.json();
+        const tags = json?.data?.media?.tags || [];
 
-      return uniqueCleanList(tags.map(tag => tag.name));
-  }
+        return uniqueCleanList(tags.map(tag => tag.name));
+    }
 
     function getAniListTagsFromPageFallback() {
         const fromDom = [...document.querySelectorAll('.tags .tag .name, .tag .name')]
-        .map(el => normalizeText(el.textContent))
-        .filter(Boolean);
+            .map(el => normalizeText(el.textContent))
+            .filter(Boolean);
 
         const fromJsonLd = [];
 
@@ -218,55 +219,75 @@
 
     async function bootAniList() {
         const panel = createPanel(`
+      <button type="button" data-action="copy-anilist-id">Copy AniList ID</button>
       <button type="button" data-action="copy-anilist-tags">Copy AniList Tags</button>
       <button type="button" class="secondary" data-action="copy-anilist-tags-csv">Copy CSV</button>
     `);
 
-      panel.addEventListener('click', async (e) => {
-          const btn = e.target.closest('button[data-action]');
-          if (!btn) return;
+        panel.addEventListener('click', async (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
 
-          setStatus('Fetching tags...');
+            const action = btn.dataset.action;
 
-          let tags = [];
+            if (action === 'copy-anilist-id') {
+                const id = getAniListMediaId();
 
-          try {
-              tags = await getAniListTagsFromApi();
-          } catch (_) {
-              tags = [];
-          }
+                if (!id) {
+                    setStatus('No AniList ID found.');
+                    return;
+                }
 
-          if (!tags.length) {
-              tags = getAniListTagsFromPageFallback();
-          }
+                const ok = await copyPlainText(String(id));
 
-          if (!tags.length) {
-              setStatus('No tags found. AniList goblin escaped.');
-              return;
-          }
+                setStatus(ok
+                    ? `Copied AniList ID: ${id}`
+                    : 'Could not copy AniList ID.'
+                );
 
-          const action = btn.dataset.action;
-          const text = action === 'copy-anilist-tags-csv'
-          ? tags.join(', ')
-          : tags.join('\n');
+                return;
+            }
 
-          const ok = await copyPlainText(text);
+            setStatus('Fetching tags...');
 
-          setStatus(ok
-                    ? `Copied ${tags.length} tags.`
-        : 'Could not copy tags.'
-               );
-    });
-  }
+            let tags = [];
+
+            try {
+                tags = await getAniListTagsFromApi();
+            } catch (_) {
+                tags = [];
+            }
+
+            if (!tags.length) {
+                tags = getAniListTagsFromPageFallback();
+            }
+
+            if (!tags.length) {
+                setStatus('No tags found. AniList goblin escaped.');
+                return;
+            }
+
+            const text = action === 'copy-anilist-tags-csv'
+                ? tags.join(', ')
+                : tags.join('\n');
+
+            const ok = await copyPlainText(text);
+
+            setStatus(ok
+                ? `Copied ${tags.length} tags.`
+                : 'Could not copy tags.'
+            );
+        });
+    }
 
     function parseTagsFromClipboard(text) {
         if (!text) return [];
 
         return uniqueCleanList(
             text
-            .split(/\r?\n|,/g)
-            .map(item => item.trim())
-            .filter(Boolean)
+                .split(/\r?\n|,/g)
+                .map(item => item.trim())
+                .filter(Boolean)
         );
     }
 
@@ -281,11 +302,11 @@
         }
 
         const fallback = [...document.querySelectorAll('body *')]
-        .reverse()
-        .find(el => {
-            const text = el.innerText || '';
-            return text.includes('Themes') && text.includes('Single line text (List)') && text.includes('Add item');
-        });
+            .reverse()
+            .find(el => {
+                const text = el.innerText || '';
+                return text.includes('Themes') && text.includes('Single line text (List)') && text.includes('Add item');
+            });
 
         return fallback || document.body;
     }
@@ -293,15 +314,15 @@
     function getThemeInputs(root) {
         return [...root.querySelectorAll('input.Polaris-TextField__Input')]
             .filter(input => {
-            const labelText =
-                  input.getAttribute('aria-labelledby')
-            ? document.getElementById(input.getAttribute('aria-labelledby'))?.textContent || ''
-            : '';
+                const labelText =
+                    input.getAttribute('aria-labelledby')
+                        ? document.getElementById(input.getAttribute('aria-labelledby'))?.textContent || ''
+                        : '';
 
-            const nearText = input.closest('li')?.innerText || '';
+                const nearText = input.closest('li')?.innerText || '';
 
-            return /Themes/i.test(labelText) || /Themes/i.test(nearText);
-        });
+                return /Themes/i.test(labelText) || /Themes/i.test(nearText);
+            });
     }
 
     function getAddItemButton(root) {
@@ -404,8 +425,8 @@
             added: tagsToAdd.length,
             skipped: tags.length - tagsToAdd.length,
             message: `Added ${tagsToAdd.length} tags.`
-    };
-  }
+        };
+    }
 
     function findThemesPopover() {
         const overlays = [...document.querySelectorAll('._CardPopover-show_16thr_27, ._CardPopover_16thr_8, [class*="CardPopover"]')];
@@ -430,9 +451,9 @@
         if (!addItemButton) return;
 
         const controlsRow =
-              addItemButton.closest('.Polaris-LegacyStack') ||
-              addItemButton.parentElement?.parentElement ||
-              addItemButton.parentElement;
+            addItemButton.closest('.Polaris-LegacyStack') ||
+            addItemButton.parentElement?.parentElement ||
+            addItemButton.parentElement;
 
         if (!controlsRow) return;
 
