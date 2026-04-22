@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Airtable Interface - DB Work Panel
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Helper panel with copy buttons and smart tab opener for database workflow.
 // @match        https://airtable.com/*
 // @run-at       document-idle
@@ -48,6 +48,12 @@
 
     const dateEl = cellEditor.querySelector('.date');
     if (dateEl) return normalize(dateEl.textContent);
+
+    const choiceToken = cellEditor.querySelector('.choiceToken, .cellToken, [title]');
+    if (choiceToken) {
+      const titled = choiceToken.getAttribute('title');
+      if (titled && normalize(titled)) return normalize(titled);
+    }
 
     const valueEls = [...cellEditor.querySelectorAll('.text-color-default')]
       .filter(el => !el.closest('[data-testid="page-element-label"]'))
@@ -114,6 +120,7 @@
       title: getTitle(root),
       isbn: getText(root, 'ISBN'),
       date: getText(root, 'Shopify-friendly date'),
+      publisherImprint: getText(root, 'Publisher/Imprint'),
       amazon: getLink(root, 'Amazon link'),
       amazonJP: getLink(root, 'Amazon JP Search'),
       mangaUpdates: getLink(root, 'MangaUpdates'),
@@ -162,6 +169,15 @@
 
     buttonRow.appendChild(createBtn('Copy date', () => {
       const v = getData().date;
+      if (!v) return;
+      copy(v);
+      tooltip.textContent = `Copied ${v}`;
+      tooltip.style.fontStyle = 'normal';
+      tooltip.style.opacity = '1';
+    }, false));
+
+    buttonRow.appendChild(createBtn('Copy Publisher/Imprint', () => {
+      const v = getData().publisherImprint;
       if (!v) return;
       copy(v);
       tooltip.textContent = `Copied ${v}`;
