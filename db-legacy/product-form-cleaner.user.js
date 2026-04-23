@@ -508,11 +508,12 @@
     const headings = Array.from(
       document.querySelectorAll('s-internal-heading, h2, h3')
     ).filter((el) => normalizeText(el.textContent) === 'Variant metafields');
-
+  
     headings.forEach((heading) => {
       const section = heading.closest('s-internal-section');
-      const wrapper = section?.parentElement || heading.parentElement;
-      markHidden(wrapper);
+      if (section) {
+        section.setAttribute(HIDDEN_ATTR, 'true');
+      }
     });
   }
 
