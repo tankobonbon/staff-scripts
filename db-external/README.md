@@ -47,6 +47,7 @@ Notes
 
 Due to the visual similarity between kanji and hanzi, the copied original title may occasionally require manual correction.
 
+
 ---
 
 ## Amazon Book Helper
@@ -69,7 +70,6 @@ Amazon Region Behavior
 
 
 ---
-
 
 ## Anilist Tags Helper
 
@@ -95,6 +95,47 @@ Instructions:
 - Go to the corresponding Shopify collection.
 - Open the Themes metafield.
 - Click Paste AniList tags.
+
+
+---
+
+## X / Twitter Cleaner
+
+Install (make sure you have Tampermonkey already): https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/twitter-cleaner.user.js
+
+Features:
+
+- Removes right-side clutter including:
+  - “What’s happening”
+  - “You might like”
+  - Suggested users / discovery modules
+- Hides navigation items:
+  - Chat
+  - Grok
+  - Creator Studio
+  - Premium
+- Removes bottom-right floating UI elements:
+  - Chat drawer
+  - Grok drawer
+  - Bottom bar
+- Hides reposted tweets from the timeline.
+- Expands the main content column to use the freed space.
+- Fixes X’s default narrow layout by overriding internal width limits (including the profile timeline container).
+- Keeps profile pages stable (no “Something went wrong” crashes from aggressive layout overrides).
+- Automatically reapplies all changes as you navigate (SPA-safe via MutationObserver).
+
+Layout Behavior
+
+- Home timeline: widened and cleaned for a more focused feed.
+- Profile pages: widened safely without breaking header/tab layout.
+- Tweet content: expands to fill available width instead of being capped at ~600px.
+
+Notes
+
+- X uses dynamic class names (like `r-1ye8kvj`), so layout fixes may occasionally break if they change their internal styles.
+- This script avoids overly aggressive DOM removal to prevent page crashes.
+- Designed for a “tweets-only” browsing experience — minimal distractions, maximum timeline.
+
 
 ---
 
