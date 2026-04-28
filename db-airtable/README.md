@@ -35,10 +35,9 @@ https://github.com/tankobonbon/staff-scripts/tree/main/db-airtable
 # — Available Userscripts
 
 
-## New Volume Helper
+## New Volume Helper (Green)
 
-Install (make sure you have Tampermonkey already):  
-https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-airtable/new-volume-helper.user.js
+Install (make sure you have Tampermonkey already):  https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-airtable/new-volume-helper.user.js
 
 
 Features:
@@ -59,6 +58,47 @@ Features:
     - Amazon link
     - Amazon JP Search
     - Shopify
+- Displays a tooltip feedback message for each action (copying or opening tabs).
+- Styled as a separate, visually distinct panel to avoid interfering with Airtable’s interface.
+
+
+---
+
+## Vendor Link Helper (Orange)
+
+Install (make sure you have Tampermonkey already):  https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-airtable/vendor-link-helper.user.js
+
+
+Features:
+
+- Adds a helper panel inside the expanded record view in Airtable Interface.
+- Automatically detects the Vendor (record title) from the top header.
+- Provides one-click buttons for:
+    - Copy Vendor (copies the record title exactly as shown)
+- Adds a Ctrl + Open tabs button that opens:
+    - Shopify Collection Search
+    - Bulk Edit Books
+    - AniList search
+    - MangaUpdates search
+- Displays a tooltip feedback message for each action (copying or opening tabs).
+- Styled as a separate, visually distinct panel to avoid interfering with Airtable’s interface.
+
+
+---
+
+## Theme Tab Helper (Blue)
+
+Install (make sure you have Tampermonkey already):  https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-airtable/theme-tab-helper.user.js
+
+
+Features:
+
+- Adds a helper panel inside the expanded record view in Airtable Interface.
+- Adds a Ctrl + Open tabs button that opens:
+    - Shopify Collection Search
+    - AniList search
+    - MangaUpdates search
+    - Shopify Bulk Search (titles within vendor)
 - Displays a tooltip feedback message for each action (copying or opening tabs).
 - Styled as a separate, visually distinct panel to avoid interfering with Airtable’s interface.
 
