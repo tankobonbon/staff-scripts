@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.1
 // @description  Helper panel with copy buttons and smart tab opener for database workflow.
-// @match        https://airtable.com/*
+// @match        https://airtable.com/appkGoa9PDJzEj1jp/*
 // @run-at       document-idle
 // @grant        GM_setClipboard
 // @updateURL    https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-airtable/new-volume-helper.user.js
@@ -12,6 +12,8 @@
 
 (function () {
   'use strict';
+
+  if (window.location.pathname !== '/appkGoa9PDJzEj1jp/shrGU6mci51Ar2G0G') return;
 
   const PANEL_ID = 'tbb-db-panel';
 
