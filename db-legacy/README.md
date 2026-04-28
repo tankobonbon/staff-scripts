@@ -87,6 +87,25 @@ Features:
 
 ---
 
+## Shopify Floater for Collections
+
+Install (make sure you have Tampermonkey already): https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-legacy/shopify-floater-for-collections.user.js
+
+- Adds one-click buttons to open Anilist and MangaUpdates based on the provided ID metafields.
+
+
+---
+
+## Shopify Floater for Products
+
+Install (make sure you have Tampermonkey already): https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-legacy/shopify-floater-for-products.user.js
+
+- Adds one-click buttons to open Amazon and Amazon JP based on the provided SKU and original title metafields.
+
+
+---
+
+
 # — Usage
 
 - Scripts load automatically when Shopify pages refresh.
