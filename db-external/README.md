@@ -139,6 +139,41 @@ Notes
 
 ---
 
+## Highlight Manga Search Launcher
+
+Install (make sure you have Tampermonkey already):  https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/highlighter-search.user.js
+
+Features:
+
+- Displays a floating search menu when you highlight any text.
+- Works across multiple sites including:
+  - Anime News Network
+  - Twitter / X
+  - Publisher sites (Seven Seas, Yen Press, Kodansha, VIZ, Square Enix, etc.)
+  - AniList, MAL, MangaUpdates, CMOA
+- One-click search across multiple platforms:
+  - MangaUpdates
+  - AniList
+  - MyAnimeList
+  - Amazon (US)
+  - Amazon Japan
+  - CMOA
+- Automatically encodes selected text (handles spaces, symbols, etc.)
+- Opens results in a new tab for fast multi-search workflow.
+- Press `ESC` or click outside to close the menu.
+
+Supported Searches:
+
+- **MangaUpdates** → Licensed series search  
+- **AniList** → Manga search  
+- **MyAnimeList** → Manga database search  
+- **Amazon (US)** → Books category search  
+- **Amazon JP** → Japanese books search  
+- **CMOA** → Japanese digital manga store search  
+
+
+---
+
 # — Usage
 
 - Scripts load automatically when external pages refresh.
