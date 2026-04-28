@@ -174,6 +174,33 @@ Supported Searches:
 
 ---
 
+## Publisher Helper
+
+Install (make sure you have Tampermonkey already):
+- https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/viz-book-helper.user.js
+- https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/yenpress-book-helper.user.js
+- https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/sevenseas-book-helper.user.js
+- https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/kodansha-book-helper.user.js
+
+Feature:
+
+- Displays a compact floating copy-helper on the bottom-right of the page.
+- One-click formats and copies:
+  - Page count
+  - Age rating
+  - Publisher
+  - Imprint
+  - ISBN
+  - Release date
+ 
+Note:
+
+- VIZ and Yen doesn't have ISBN and Release date buttons at the moment.
+- More publishers are planned to be added in the future.
+
+
+---
+
 # — Usage
 
 - Scripts load automatically when external pages refresh.
