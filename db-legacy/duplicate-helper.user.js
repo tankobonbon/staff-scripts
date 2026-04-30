@@ -6,8 +6,6 @@
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
 // @grant        none
-// @updateURL    https://github.com/tankobonbon/scripts/raw/refs/heads/main/db-legacy/duplicate-helper.user.js
-// @downloadURL  https://github.com/tankobonbon/scripts/raw/refs/heads/main/db-legacy/duplicate-helper.user.js
 // ==/UserScript==
 
 (function () {
@@ -607,6 +605,7 @@
     }
 
     uncheckTargetBoxes(modal);
+    // selectActiveStatus(modal);
   }
 
   function runEnhancements() {
