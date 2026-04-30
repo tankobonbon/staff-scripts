@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopify Add Tags - Boxed Prefix Filter Buttons
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      2.0
 // @description  Keeps Shopify's native Add tags modal, makes it slightly taller, shrinks font, and adds boxed quick prefix filter buttons.
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
@@ -13,62 +13,142 @@
 (function () {
   'use strict';
 
-  const STYLE_ID = 'tm-shopify-tags-filter-cloud-style-v17';
-  const MODAL_CLASS = 'tm-shopify-tags-modal-v17';
-  const CLOUD_BOX_CLASS = 'tm-shopify-tags-cloud-box-v17';
-  const CLOUD_CLASS = 'tm-shopify-tags-cloud-v17';
-  const PRIORITY_BTN_CLASS = 'is-priority';
+  const V = 'v28';
+  const STYLE_ID = `tm-shopify-tags-style-${V}`;
+  const PANEL = `tm-shopify-tags-panel-${V}`;
+  const BTN = `tm-shopify-tags-btn-${V}`;
+  const ROW = `tm-shopify-tags-row-${V}`;
+  const SECTION = `tm-shopify-tags-section-${V}`;
+  const FIELD = 's-internal-multi-picker-field[label="Tags"]';
+  const VALUE = 's-internal-multi-picker-field-value';
+  const OPTION_BLOCK = 's-internal-picker-option-group, s-internal-picker-option';
 
-  const FIXED_FILTERS = [
-    { label: 'Cover not final', value: 'Cover not final' },
-    { label: 'Lounge', value: 'Lounge' },
+  const oldStyles = [
+    'tm-shopify-tags-new-ui-style-v20',
+    'tm-shopify-tags-new-ui-style-v21',
+    'tm-shopify-tags-new-ui-style-v22',
+    'tm-shopify-tags-new-ui-style-v23',
+    'tm-shopify-tags-new-ui-style-v24',
+    'tm-shopify-tags-new-ui-style-v25',
+    'tm-shopify-tags-new-ui-style-v26',
+    'tm-shopify-tags-new-ui-style-v27',
   ];
 
-  const PRIORITY_PREFIX_ORDER = [
-    'Adapted to',
-    'Age Rating',
-    'Publisher',
-    'Imprint',
+  const oldPanels = [
+    '#tm-shopify-tags-always-panel-v20',
+    '.tm-shopify-tags-dropdown-panel-v20',
+    '.tm-shopify-tags-dropdown-panel-v21',
+    '.tm-shopify-tags-dropdown-panel-v22',
+    '.tm-shopify-tags-dropdown-panel-v23',
+    '.tm-shopify-tags-dropdown-panel-v24',
+    '.tm-shopify-tags-dropdown-panel-v25',
+    '.tm-shopify-tags-dropdown-panel-v26',
+    '.tm-shopify-tags-dropdown-panel-v27',
   ];
 
-  const PREFIX_FILTERS = [
-    { label: 'Adapted to', value: 'Adapted to_' },
-    { label: 'Age Rating', value: 'Age Rating_' },
-    { label: 'Class', value: 'Class_' },
-    { label: 'Demographic', value: 'Demographic_' },
-    { label: 'Format', value: 'Format_' },
-    { label: 'Genre', value: 'Genre_' },
-    { label: 'Imprint', value: 'Imprint_' },
-    { label: 'Price Code', value: 'Price Code_' },
-    { label: 'Publisher', value: 'Publisher_' },
-    { label: 'Release', value: 'Release_' },
-    { label: 'Status', value: 'Status_' },
-    { label: 'Type', value: 'Type_' },
-    { label: 'Volume', value: 'Volume_' },
+  const quickGroups = [
+    [
+      ['Cover not final', 'Cover not final'],
+      ['Lounge', 'Lounge'],
+      ['New License', 'New License'],
+    ],
+    [
+      ['Single', 'Volume_Single'],
+      ['Omnibus', 'Volume_Omnibus'],
+    ],
+    [
+      ['Manga', 'Type_Manga'],
+      ['Novel', 'Type_Novel'],
+      ['Manhwa', 'Type_Manhwa'],
+    ],
+    [
+      ['Debut', 'Class_Debut'],
+      ['Standalone', 'Class_Standalone'],
+      ['Box Set', 'Class_Box Set'],
+      ['Final Volume', 'Class_Final Volume'],
+    ],
+    [
+      ['Paperback', 'Format_Trade Paperback'],
+      ['Hardcover', 'Format_Hardcover'],
+    ],
+  ];
+
+  const priority = ['Adapted to', 'Age Rating', 'Publisher', 'Imprint'];
+
+  const filters = [
+    ['Adapted to', 'Adapted to_'],
+    ['Age Rating', 'Age Rating_'],
+    ['Class', 'Class_'],
+    ['Demographic', 'Demographic_'],
+    ['Format', 'Format_'],
+    ['Genre', 'Genre_'],
+    ['Imprint', 'Imprint_'],
+    ['Price Code', 'Price Code_'],
+    ['Publisher', 'Publisher_'],
+    ['Release', 'Release_'],
+    ['Status', 'Status_'],
+    ['Type', 'Type_'],
+    ['Volume', 'Volume_'],
   ].sort((a, b) => {
-    const aPriority = PRIORITY_PREFIX_ORDER.indexOf(a.label);
-    const bPriority = PRIORITY_PREFIX_ORDER.indexOf(b.label);
-
-    const aIsPriority = aPriority !== -1;
-    const bIsPriority = bPriority !== -1;
-
-    if (aIsPriority && bIsPriority) return aPriority - bPriority;
-    if (aIsPriority) return -1;
-    if (bIsPriority) return 1;
-
-    return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+    const ai = priority.indexOf(a[0]);
+    const bi = priority.indexOf(b[0]);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a[0].localeCompare(b[0], undefined, { sensitivity: 'base' });
   });
 
-  const FILTERS = [
-    ...FIXED_FILTERS,
-    ...PREFIX_FILTERS,
-    { label: 'Clear', value: '' },
+  const colors = [
+    { key: 'cover', values: ['Cover not final'], bg: '#fecaca', border: '#ef4444', text: '#991b1b' },
+    { key: 'lounge', values: ['Lounge'], bg: '#bbf7d0', border: '#22c55e', text: '#14532d' },
+    { key: 'license', values: ['New License'], bg: '#bfdbfe', border: '#3b82f6', text: '#1e3a8a' },
+    { key: 'class-special', values: ['Class_Debut', 'Class_Standalone'], bg: '#fde68a', border: '#f59e0b', text: '#92400e' },
   ];
 
   let timer = null;
+  let settingSearch = false;
+  let lastRun = 0;
+  let lastSearch = '';
 
-  function normalizeText(text) {
-    return (text || '').replace(/\s+/g, ' ').trim();
+  const norm = (text) => (text || '').replace(/\s+/g, ' ').trim();
+  const esc = (text) => String(text).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const isProductPage = () => /^\/store\/tankobonbon-manga-book-store\/products\/[^/]+\/?$/.test(location.pathname);
+
+  function cleanupOld() {
+    oldStyles.forEach((id) => document.getElementById(id)?.remove());
+    oldPanels.forEach((sel) => document.querySelectorAll(sel).forEach((el) => el.remove()));
+    document.querySelectorAll(VALUE).forEach((chip) => {
+      chip.shadowRoot?.querySelector('#tm-chip-style-v23')?.remove();
+      chip.shadowRoot?.querySelector('#tm-chip-style-v24')?.remove();
+    });
+  }
+
+  function chipCss(value, c) {
+    const v = esc(value);
+    return `
+      ${VALUE}[value="${v}"],
+      ${VALUE}[data-tm-tag-color="${c.key}"] {
+        display: inline-flex !important;
+        align-items: center !important;
+        width: auto !important;
+        min-height: 1.35rem !important;
+        padding: 0.1rem 0.45rem !important;
+        border-radius: 0.45rem !important;
+        background: ${c.bg} !important;
+        background-color: ${c.bg} !important;
+        border: 1px solid ${c.border} !important;
+        border-color: ${c.border} !important;
+        box-shadow: inset 0 0 0 1px ${c.border} !important;
+        color: ${c.text} !important;
+        font-weight: 750 !important;
+      }
+
+      ${VALUE}[value="${v}"] *,
+      ${VALUE}[data-tm-tag-color="${c.key}"] * {
+        color: ${c.text} !important;
+        font-weight: 750 !important;
+      }
+    `;
   }
 
   function addStyles() {
@@ -77,344 +157,501 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .${MODAL_CLASS} {
-        max-height: 88vh !important;
-        height: 88vh !important;
-        display: flex !important;
-        flex-direction: column !important;
+      .${PANEL} {
+        position: static !important;
+        z-index: auto !important;
+        display: block !important;
+        box-sizing: border-box !important;
+        width: auto !important;
+        margin: 0.45rem 0 0.55rem 0 !important;
+        padding: 0.55rem 0.6rem !important;
+        border: 1px solid #d0d5dd !important;
+        border-radius: 0.72rem !important;
+        background: #fff !important;
+        box-shadow: none !important;
       }
 
-      .${MODAL_CLASS}.Polaris-Modal-Dialog--limitHeight,
-      .${MODAL_CLASS} .Polaris-Modal-Dialog--limitHeight,
-      .${MODAL_CLASS} .Polaris-Modal-Dialog__Modal {
-        max-height: 88vh !important;
+      .${SECTION} + .${SECTION} {
+        margin-top: 0.48rem;
+        padding-top: 0.48rem;
+        border-top: 1px dashed #e5e7eb;
       }
 
-      .${MODAL_CLASS} .Polaris-Modal__Body,
-      .${MODAL_CLASS} .Polaris-Scrollable {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
+      .tm-shopify-tags-heading-${V} {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+        margin: 0 0 0.32rem 0;
+        color: #4b5563;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
       }
 
-      .${MODAL_CLASS} .Polaris-Modal-Footer {
-        margin-top: auto !important;
-        background: var(--p-color-bg-surface, #fff) !important;
-        position: sticky !important;
-        bottom: 0 !important;
-        z-index: 2 !important;
-      }
-
-      .${MODAL_CLASS} .Polaris-Text--bodyMd,
-      .${MODAL_CLASS} .Polaris-Text--bodySm,
-      .${MODAL_CLASS} .Polaris-OptionList-Option__Label,
-      .${MODAL_CLASS} [id$="-label"] {
-        font-size: 0.78rem !important;
-        line-height: 1.15 !important;
-      }
-
-      .${MODAL_CLASS} .Polaris-Checkbox {
-        transform: scale(0.92);
-        transform-origin: center center;
-      }
-
-      .${MODAL_CLASS} .Polaris-OptionList-Option {
-        margin: 0 !important;
-        list-style: none;
-      }
-
-      .${MODAL_CLASS} .Polaris-OptionList-Option__Label {
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.38rem !important;
-        padding: 0.16rem 0.24rem !important;
-        border-radius: 0.38rem;
-      }
-
-      .${MODAL_CLASS} .Polaris-OptionList-Option__Label:hover {
-        background: var(--p-color-bg-surface-secondary, #f6f6f7);
-      }
-
-      .${MODAL_CLASS} .Polaris-OptionList-Option__Checkbox {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        padding-top: 0 !important;
-        margin-top: 0 !important;
-      }
-
-      .${MODAL_CLASS} .Polaris-Modal-Section section {
-        padding-top: 0.75rem !important;
-        padding-bottom: 0.55rem !important;
-      }
-
-      .${MODAL_CLASS} .${CLOUD_BOX_CLASS} {
-        margin: 0.7rem 0 0.42rem 0 !important;
-        padding: 0.55rem 0.62rem !important;
-        border: 1px solid var(--p-color-border, #d0d0d0) !important;
-        border-radius: 0.75rem !important;
-        background: var(--p-color-bg-surface, #fff) !important;
-      }
-
-      .${MODAL_CLASS} .${CLOUD_CLASS} {
+      .${ROW} {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.42rem;
+        gap: 0.34rem;
       }
 
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.${PRIORITY_BTN_CLASS} {
+      .${ROW} + .${ROW} {
+        margin-top: 0.34rem;
+      }
+
+      .${BTN} {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #c9cccf;
+        background: #fff;
+        color: #344054;
+        border-radius: 999px;
+        padding: 0.21rem 0.55rem;
+        font-size: 0.7rem;
+        font-weight: 650;
+        line-height: 1.1;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .${BTN}:hover {
+        background: #f8fafc;
+        border-color: #98a2b3;
+      }
+
+      .${BTN}.is-priority {
         border-color: #b6d7ff;
         background: #eaf4ff;
         color: #184a8b;
       }
 
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.${PRIORITY_BTN_CLASS}:hover {
-        background: #dcebff;
-        border-color: #9fc8ff;
-      }
-
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.${PRIORITY_BTN_CLASS}.is-active {
+      .${BTN}.is-priority:hover,
+      .${BTN}.is-priority.is-active {
         border-color: #6ea8fe;
         background: #cfe4ff;
         color: #123d73;
-        font-weight: 700;
-      }
-      
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn {
-        appearance: none;
-        border: 1px solid var(--p-color-border, #c9cccf);
-        background: var(--p-color-bg-surface, #fff);
-        color: inherit;
-        border-radius: 999px;
-        padding: 0.22rem 0.58rem;
-        font-size: 0.72rem;
-        line-height: 1.1;
-        cursor: pointer;
       }
 
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn:hover {
-        background: var(--p-color-bg-surface-secondary, #f6f6f7);
-      }
-
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.is-active {
-        border-color: var(--p-color-border-emphasis, #8c9196);
-        background: var(--p-color-bg-surface-secondary, #f6f6f7);
-        font-weight: 600;
-      }
-
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.is-clear {
+      .${BTN}.is-clear {
         border-color: #e7b3b3;
-        color: #b42318;
         background: #fff6f6;
+        color: #b42318;
       }
 
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.is-clear:hover {
+      .${BTN}.is-clear:hover {
+        border-color: #d14343;
         background: #ffefef;
       }
 
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.is-clear.has-value {
-        border-color: #d14343;
-        color: #ffffff;
-        background: #d14343;
-        font-weight: 700;
+      .${BTN}.is-active:not(.is-priority),
+      .${BTN}[data-selected="true"] {
+        border-color: #667085;
+        background: #f2f4f7;
+        color: #101828;
+        font-weight: 800;
       }
 
-      .${MODAL_CLASS} .${CLOUD_CLASS}-btn.is-clear.has-value:hover {
-        background: #b93838;
-        border-color: #b93838;
+      s-popover:has(s-internal-search-field[label="Tags"]) {
+        max-height: 78vh !important;
       }
 
-      .${MODAL_CLASS} h3.Polaris-Text--headingSm {
-        margin-top: 0.18rem !important;
-        margin-bottom: 0.28rem !important;
+      s-popover:has(s-internal-search-field[label="Tags"]) s-internal-picker-option,
+      s-popover:has(s-internal-search-field[label="Tags"]) s-internal-picker-option-group {
+        font-size: 0.78rem !important;
+        line-height: 1.15 !important;
       }
 
-      .${MODAL_CLASS} .Polaris-Modal-Footer .Polaris-Box {
-        padding-block-start: 0.48rem !important;
-        padding-block-end: 0.48rem !important;
-      }
-
-      .${MODAL_CLASS} .Polaris-Modal-Footer .Polaris-InlineStack {
-        row-gap: 0.3rem !important;
-      }
+      ${colors.map((c) => c.values.map((value) => chipCss(value, c)).join('\n')).join('\n')}
     `;
     document.head.appendChild(style);
   }
 
-  function findAddTagsModal() {
-    const headings = Array.from(
-      document.querySelectorAll('.Polaris-Modal-Dialog h2, .Polaris-Modal-Dialog [role="heading"]')
-    );
-
-    const heading = headings.find((el) => normalizeText(el.textContent) === 'Add tags');
-    if (!heading) return null;
-
-    const dialog = heading.closest('.Polaris-Modal-Dialog');
-    const modal = dialog?.querySelector('.Polaris-Modal-Dialog__Modal') || null;
-
-    return { dialog, modal };
+  function tagsField() {
+    return document.querySelector(FIELD) ||
+      Array.from(document.querySelectorAll('s-internal-multi-picker-field'))
+        .find((el) => norm(el.getAttribute('label')) === 'Tags') ||
+      null;
   }
 
-  function getSearchInput(modal) {
-    return modal.querySelector('input[placeholder*="Search to find or create tags"]');
+  function popover() {
+    const field = tagsField();
+    const id = field?.getAttribute('commandfor');
+    if (id && document.getElementById(id)) return document.getElementById(id);
+
+    return field?.parentElement?.querySelector('s-popover') ||
+      Array.from(document.querySelectorAll('s-popover'))
+        .find((el) => el.querySelector('s-internal-search-field[label="Tags"], s-internal-search-field[placeholder*="Search or add tags"]')) ||
+      null;
   }
 
-  function getTopControlsRow(modal) {
-    const input = getSearchInput(modal);
-    if (!input) return null;
+  const picker = () => popover()?.querySelector('s-internal-multi-picker') || null;
+  const searchHost = () => popover()?.querySelector('s-internal-search-field[label="Tags"], s-internal-search-field[placeholder*="Search or add tags"]') || null;
 
-    return (
-      input.closest('.Polaris-LegacyStack') ||
-      input.closest('.Polaris-Box') ||
-      input.parentElement
-    );
-  }
+  function deepInput(root) {
+    if (!root) return null;
+    const direct = root.querySelector?.('input, textarea');
+    if (direct) return direct;
 
-  function setNativeInputValue(input, value) {
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-    if (descriptor?.set) {
-      descriptor.set.call(input, value);
-    } else {
-      input.value = value;
+    const shadow = root.shadowRoot?.querySelector('input, textarea');
+    if (shadow) return shadow;
+
+    for (const el of root.querySelectorAll?.('*') || []) {
+      const input = el.shadowRoot?.querySelector('input, textarea');
+      if (input) return input;
     }
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    return null;
   }
 
-  function updateActiveButtons(modal) {
-    const input = getSearchInput(modal);
+  const searchInput = () => deepInput(searchHost()) || deepInput(popover());
+
+  function currentSearch() {
+    const input = searchInput();
+    if (input) return input.value || '';
+
+    const host = searchHost();
+    return host?.value || host?.getAttribute('value') || '';
+  }
+
+  function dispatchInput(target, value) {
+    if (!target) return;
+
+    try {
+      target.dispatchEvent(new InputEvent('input', {
+        bubbles: true,
+        composed: true,
+        data: value,
+        inputType: 'insertText',
+      }));
+    } catch {
+      target.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    }
+
+    target.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    target.dispatchEvent(new KeyboardEvent('keyup', {
+      bubbles: true,
+      composed: true,
+      key: value ? value.slice(-1) : 'Backspace',
+    }));
+  }
+
+  function setNativeValue(input, value) {
     if (!input) return;
 
-    const current = input.value || '';
-    const hasValue = current.trim().length > 0;
-    const buttons = modal.querySelectorAll(`.${CLOUD_CLASS}-btn[data-filter-value]`);
+    const proto = input instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
 
-    buttons.forEach((btn) => {
-      const value = btn.getAttribute('data-filter-value') || '';
-      btn.classList.toggle('is-active', current === value);
+    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
 
-      if (btn.classList.contains('is-clear')) {
-        btn.classList.toggle('has-value', hasValue);
-      }
-    });
+    if (desc?.set) desc.set.call(input, value);
+    else input.value = value;
+
+    dispatchInput(input, value);
   }
 
-  function createCloudBox(modal) {
-    const box = document.createElement('div');
-    box.className = CLOUD_BOX_CLASS;
+  function setSearch(value) {
+    lastSearch = value;
+    settingSearch = true;
 
-    const cloud = document.createElement('div');
-    cloud.className = CLOUD_CLASS;
+    const host = searchHost();
+    const input = searchInput();
 
-    FILTERS.forEach((item) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `${CLOUD_CLASS}-btn`;
-      btn.textContent = item.label;
-      btn.setAttribute('data-filter-value', item.value);
+    if (host) {
+      try { host.value = value; } catch {}
+      try { host.setAttribute('value', value); } catch {}
+      dispatchInput(host, value);
+    }
 
-      if (item.label === 'Clear') {
-        btn.classList.add('is-clear');
-      }
+    if (input) setNativeValue(input, value);
 
-      if (PRIORITY_PREFIX_ORDER.includes(item.label)) {
-        btn.classList.add(PRIORITY_BTN_CLASS);
-      }
+    setTimeout(() => {
+      settingSearch = false;
+      updateStates();
+    }, 100);
+  }
 
-      btn.addEventListener('click', () => {
-        const input = getSearchInput(modal);
-        if (!input) return;
+  function selectedTags() {
+    return Array.from(tagsField()?.querySelectorAll(VALUE) || [])
+      .map((chip) => chip.getAttribute('value') || norm(chip.textContent))
+      .filter(Boolean);
+  }
 
-        setNativeInputValue(input, item.value);
-        input.focus();
-        updateActiveButtons(modal);
-        tightenAddRows(modal);
+  function paletteFor(value) {
+    return colors.find((c) => c.values.includes(value)) || null;
+  }
+
+  function resetChip(chip) {
+    chip.removeAttribute('data-tm-tag-color');
+
+    [
+      'display',
+      'align-items',
+      'width',
+      'min-height',
+      'padding',
+      'border-radius',
+      'background',
+      'background-color',
+      'border',
+      'border-color',
+      'box-shadow',
+      'color',
+      'font-weight',
+    ].forEach((prop) => chip.style.removeProperty(prop));
+  }
+
+  function paintChip(chip, c) {
+    chip.setAttribute('data-tm-tag-color', c.key);
+
+    Object.entries({
+      display: 'inline-flex',
+      'align-items': 'center',
+      width: 'auto',
+      'min-height': '1.35rem',
+      padding: '0.1rem 0.45rem',
+      'border-radius': '0.45rem',
+      background: c.bg,
+      'background-color': c.bg,
+      border: `1px solid ${c.border}`,
+      'border-color': c.border,
+      'box-shadow': `inset 0 0 0 1px ${c.border}`,
+      color: c.text,
+      'font-weight': '750',
+    }).forEach(([prop, value]) => chip.style.setProperty(prop, value, 'important'));
+
+    chip.shadowRoot?.querySelectorAll('[part], button, span, div, s-text, s-internal-text')
+      .forEach((el) => {
+        el.style.setProperty('color', c.text, 'important');
+        el.style.setProperty('font-weight', '750', 'important');
       });
-
-      cloud.appendChild(btn);
-    });
-
-    box.appendChild(cloud);
-    return box;
   }
 
-  function tightenAddRows(modal) {
-    const candidates = Array.from(modal.querySelectorAll('a, .Polaris-Link'));
+  function colorChips() {
+    document.querySelectorAll(VALUE).forEach((chip) => {
+      const value = chip.getAttribute('value') || norm(chip.textContent);
+      const color = paletteFor(value);
 
-    candidates.forEach((el) => {
-      const text = normalizeText(el.textContent);
-      if (!text.startsWith('Add "')) return;
+      resetChip(chip);
+      if (color) paintChip(chip, color);
+    });
+  }
 
-      el.style.marginTop = '0';
-      el.style.marginBottom = '0.18rem';
-      el.style.display = 'inline-flex';
-      el.style.alignItems = 'center';
+  function heading(left, right = '') {
+    const el = document.createElement('div');
+    el.className = `tm-shopify-tags-heading-${V}`;
+    el.innerHTML = `<span>${left}</span>${right ? `<span>${right}</span>` : ''}`;
+    return el;
+  }
 
-      let wrapper = el.parentElement;
-      let depth = 0;
+  function pill(label, data = {}) {
+    const el = document.createElement('span');
+    el.className = BTN;
+    el.textContent = label;
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '-1');
 
-      while (wrapper && wrapper !== modal && depth < 4) {
-        wrapper.style.marginTop = '0';
-        wrapper.style.marginBottom = depth === 0 ? '0.18rem' : '0';
-        depth += 1;
-        wrapper = wrapper.parentElement;
+    if ('quickValue' in data) el.dataset.quickValue = data.quickValue;
+    if ('filterValue' in data) el.dataset.filterValue = data.filterValue;
+    if (data.priority) el.classList.add('is-priority');
+    if (data.clear) el.classList.add('is-clear');
+
+    return el;
+  }
+
+  function panel() {
+    const wrap = document.createElement('div');
+    wrap.className = PANEL;
+
+    const quick = document.createElement('div');
+    quick.className = SECTION;
+    quick.appendChild(heading('Quick tags', 'fills search'));
+
+    quickGroups.forEach((group) => {
+      const row = document.createElement('div');
+      row.className = ROW;
+      group.forEach(([label, value]) => row.appendChild(pill(label, { quickValue: value })));
+      quick.appendChild(row);
+    });
+
+    const filterSection = document.createElement('div');
+    filterSection.className = SECTION;
+    filterSection.appendChild(heading('Search groups', 'filters native results'));
+
+    const filterRow = document.createElement('div');
+    filterRow.className = ROW;
+    filters.forEach(([label, value]) => {
+      filterRow.appendChild(pill(label, {
+        filterValue: value,
+        priority: priority.includes(label),
+      }));
+    });
+
+    const clearRow = document.createElement('div');
+    clearRow.className = ROW;
+    clearRow.appendChild(pill('Clear search', { filterValue: '', clear: true }));
+
+    filterSection.appendChild(filterRow);
+    filterSection.appendChild(clearRow);
+
+    wrap.appendChild(quick);
+    wrap.appendChild(filterSection);
+
+    return wrap;
+  }
+
+  function installPanel() {
+    const pick = picker();
+    if (!pick) return;
+
+    let wrap = pick.querySelector(`.${PANEL}`);
+    if (!wrap) wrap = panel();
+
+    const firstResult = Array.from(pick.children).find((el) => el.matches?.(OPTION_BLOCK));
+
+    if (firstResult) {
+      if (wrap.parentElement !== pick || wrap.nextElementSibling !== firstResult) {
+        pick.insertBefore(wrap, firstResult);
       }
+    } else if (wrap.parentElement !== pick) {
+      pick.appendChild(wrap);
+    }
+  }
+
+  function helperFromEvent(event) {
+    for (const item of event.composedPath?.() || []) {
+      if (item?.classList?.contains?.(BTN)) return item;
+    }
+    return event.target?.closest?.(`.${BTN}`) || null;
+  }
+
+  function stop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+  }
+
+  function runHelper(el) {
+    const now = Date.now();
+    if (now - lastRun < 160) return;
+
+    lastRun = now;
+
+    const value = 'quickValue' in el.dataset
+      ? el.dataset.quickValue
+      : 'filterValue' in el.dataset
+        ? el.dataset.filterValue
+        : '';
+
+    setSearch(value);
+    setTimeout(() => setSearch(value), 50);
+    setTimeout(() => setSearch(value), 140);
+    setTimeout(updateStates, 160);
+  }
+
+  function guardClicks() {
+    if (document.documentElement.dataset.tmTagsGuardV28 === 'true') return;
+    document.documentElement.dataset.tmTagsGuardV28 = 'true';
+
+    ['pointerdown', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend', 'focusin', 'focusout'].forEach((type) => {
+      window.addEventListener(type, (event) => {
+        const helper = helperFromEvent(event);
+        if (!helper) return;
+
+        stop(event);
+
+        if (type === 'pointerdown' || type === 'touchstart' || (!window.PointerEvent && type === 'mousedown')) {
+          runHelper(helper);
+        }
+      }, true);
+
+      document.addEventListener(type, (event) => {
+        const helper = helperFromEvent(event);
+        if (helper) stop(event);
+      }, true);
     });
   }
 
-  function enhanceModal() {
+  function updateStates() {
+    const selected = new Set(selectedTags());
+    const search = currentSearch();
+
+    document.querySelectorAll(`.${BTN}[data-quick-value]`).forEach((el) => {
+      el.toggleAttribute('data-selected', selected.has(el.dataset.quickValue || ''));
+    });
+
+    document.querySelectorAll(`.${BTN}[data-filter-value]`).forEach((el) => {
+      const value = el.dataset.filterValue || '';
+      el.classList.toggle('is-active', el.classList.contains('is-clear') ? !search : !!value && search === value);
+    });
+  }
+
+  function watchSearch() {
+    const pop = popover();
+    if (!pop || pop.dataset.tmTagsWatcherV28 === 'true') return;
+
+    pop.dataset.tmTagsWatcherV28 = 'true';
+
+    pop.addEventListener('input', () => {
+      if (!settingSearch) setTimeout(updateStates, 80);
+    }, true);
+
+    pop.addEventListener('change', () => {
+      if (settingSearch) return;
+      setTimeout(updateStates, 80);
+      setTimeout(colorChips, 120);
+    }, true);
+
+    pop.addEventListener('toggle', () => {
+      setTimeout(() => {
+        installPanel();
+        if (lastSearch) setSearch(lastSearch);
+        updateStates();
+      }, 80);
+    }, true);
+  }
+
+  function apply() {
+    if (!isProductPage()) return;
+
+    cleanupOld();
     addStyles();
-
-    const found = findAddTagsModal();
-    if (!found?.modal) return;
-
-    const modal = found.modal;
-    modal.classList.add(MODAL_CLASS);
-
-    const input = getSearchInput(modal);
-    if (!input) return;
-
-    const topControlsRow = getTopControlsRow(modal);
-    if (!topControlsRow) return;
-
-    let box = modal.querySelector(`.${CLOUD_BOX_CLASS}`);
-    if (!box) {
-      box = createCloudBox(modal);
-      topControlsRow.insertAdjacentElement('afterend', box);
-    }
-
-    if (!input.dataset.tmCloudBound) {
-      input.dataset.tmCloudBound = 'true';
-      input.addEventListener('input', () => {
-        updateActiveButtons(modal);
-        tightenAddRows(modal);
-      });
-      input.addEventListener('change', () => {
-        updateActiveButtons(modal);
-        tightenAddRows(modal);
-      });
-      input.addEventListener('keyup', () => {
-        updateActiveButtons(modal);
-        tightenAddRows(modal);
-      });
-    }
-
-    updateActiveButtons(modal);
-    tightenAddRows(modal);
+    installPanel();
+    guardClicks();
+    watchSearch();
+    colorChips();
+    updateStates();
   }
 
-  function scheduleEnhance() {
+  function scheduleApply() {
     clearTimeout(timer);
-    timer = setTimeout(enhanceModal, 120);
+    timer = setTimeout(apply, 120);
   }
 
-  enhanceModal();
+  apply();
 
-  const observer = new MutationObserver(() => {
-    scheduleEnhance();
-  });
-
-  observer.observe(document.body, {
+  new MutationObserver(scheduleApply).observe(document.documentElement, {
     childList: true,
     subtree: true,
+    attributes: true,
+    attributeFilter: ['value', 'open', 'aria-expanded', 'style'],
   });
+
+  const pushState = history.pushState;
+  history.pushState = function (...args) {
+    const result = pushState.apply(this, args);
+    setTimeout(scheduleApply, 80);
+    return result;
+  };
+
+  const replaceState = history.replaceState;
+  history.replaceState = function (...args) {
+    const result = replaceState.apply(this, args);
+    setTimeout(scheduleApply, 80);
+    return result;
+  };
+
+  window.addEventListener('popstate', scheduleApply);
 })();
