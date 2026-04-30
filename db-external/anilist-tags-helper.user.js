@@ -8,6 +8,7 @@
 // @match        https://admin.shopify.com/store/*/collections/*
 // @match        https://admin.shopify.com/store/*/collection/*
 // @match        https://admin.shopify.com/store/*/products/*
+// @match        https://admin.shopify.com/store/*/bulk/*
 // @run-at       document-idle
 // @grant        GM_setClipboard
 // @updateURL    https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/anilist-tags-helper.user.js
@@ -466,7 +467,7 @@
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.dataset.tmPasteThemesBtn = '1';
-        btn.textContent = 'Paste AniList tags';
+        btn.textContent = 'Paste themes';
         btn.style.appearance = 'none';
         btn.style.border = '1px solid rgba(0,0,0,.15)';
         btn.style.borderRadius = '8px';
