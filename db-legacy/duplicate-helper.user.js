@@ -607,7 +607,6 @@
     }
 
     uncheckTargetBoxes(modal);
-    selectActiveStatus(modal);
   }
 
   function runEnhancements() {
