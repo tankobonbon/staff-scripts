@@ -3,8 +3,12 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.1
 // @description  Highlight text and search it on MangaUpdates, AniList, MAL, Amazon, Amazon JP, or CMOA.
+// @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/*
 // @match        https://www.animenewsnetwork.com/*
 // @match        https://animenewsnetwork.com/*
+// @match        https://www.amazon.com/*
+// @match        https://www.amazon.co.jp/*
+// @match        https://airtable.com/*
 // @match        https://x.com/*
 // @match        https://twitter.com/*
 // @match        https://sevenseasentertainment.com/*
