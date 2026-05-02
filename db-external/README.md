@@ -158,6 +158,8 @@ Features:
   - Amazon (US)
   - Amazon Japan
   - CMOA
+  - Bookwalker
+  - Shopify (Product Search and Bulk Edit)
 - Automatically encodes selected text (handles spaces, symbols, etc.)
 - Opens results in a new tab for fast multi-search workflow.
 - Press `ESC` or click outside to close the menu.
