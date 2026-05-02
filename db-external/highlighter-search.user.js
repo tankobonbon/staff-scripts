@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Highlighter Search
 // @namespace    http://tampermonkey.net/
-// @version      1.1
-// @description  Highlight text and search it on MangaUpdates, AniList, MAL, Amazon, Amazon JP, or CMOA.
+// @version      1.2
+// @description  Highlight text and search it on MangaUpdates, AniList, MAL, Amazon, Amazon JP, CMOA, Bookwalker, Shopify Product Search, or Bulk Edit.
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/*
 // @match        https://www.animenewsnetwork.com/*
 // @match        https://animenewsnetwork.com/*
@@ -20,6 +20,8 @@
 // @match        https://www.mangaupdates.com/*
 // @match        https://cmoa.jp/*
 // @match        https://anilist.co/*
+// @match        https://bookwalker.com/*
+// @match        https://www.bookwalker.com/*
 // @match        https://discord.com/*
 // @grant        none
 // @updateURL    https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/highlighter-search.user.js
@@ -40,7 +42,10 @@
         { label: 'MAL', color: '#2D51A2', text: '#fff', url: t => `https://myanimelist.net/manga.php?q=${encodeURIComponent(t)}` },
         { label: 'Amazon EN', color: '#232F3E', text: '#fff', url: t => `https://www.amazon.com/s?k=${encodeURIComponent(t)}&i=stripbooks` },
         { label: 'Amazon JP', color: '#BE0126', text: '#fff', url: t => `https://www.amazon.co.jp/s?k=${encodeURIComponent(t)}&i=stripbooks` },
-        { label: 'CMOA', color: '#FF9B32', text: '#fff', url: t => `https://www.cmoa.jp/search/result/?header_word=${encodeURIComponent(t)}` }
+        { label: 'CMOA', color: '#FF9B32', text: '#fff', url: t => `https://www.cmoa.jp/search/result/?header_word=${encodeURIComponent(t)}` },
+        { label: 'Bookwalker', color: '#23A7B1', text: '#fff', url: t => `https://bookwalker.com/browse?search=${encodeURIComponent(t)}` },
+        { label: 'Product Search', color: '#98C14C', text: '#fff', url: t => `https://admin.shopify.com/store/tankobonbon-manga-book-store/products?savedViewId=1141953986818&query=-vendor%3A%22Tankobonbon%2CTankonbini%22+-product_type%3A%22Collectibles%22+${encodeURIComponent(t)}&order=title+asc&selectedColumns=IMAGE%2CTITLE%2CSTATUS%2CPRODUCT_TYPE%2CVENDOR%2CCREATED_AT%2CUPDATED_AT` },
+        { label: 'Bulk Edit', color: '#649144', text: '#fff', url: t => `https://admin.shopify.com/store/tankobonbon-manga-book-store/bulk?resource_name=Product&edit=vendor%2Cmetafields.arena.genres%2Cmetafields.arena.author%2Cmetafields.arena.romaji%2Cmetafields.arena.japanese%2Cmetafields.arena.demography%2Cmetafields.arena.imprint%2Cmetafields.arena.publisher%2Cmetafields.custom.page_count%2Cmetafields.custom.series%2Cmetafields.custom.volume%2Cmetafields.custom.chapters%2Cmetafields.custom.extra_chapters%2Cmetafields.custom.sub_series%2Cmetafields.arena.availability%2Cmetafields.custom.preview%2Cmetafields.arena.release&return_to=%2Fstore%2Ftankobonbon-manga-book-store%2Fproducts&selectedView=all&query=${encodeURIComponent(t)}` }
       ]
     },
     {
@@ -132,7 +137,7 @@
       }
 
       menu.style.left = `${Math.min(e.clientX + 8, window.innerWidth - 140)}px`;
-      menu.style.top = `${Math.min(e.clientY + 8, window.innerHeight - 260)}px`;
+      menu.style.top = `${Math.min(e.clientY + 8, window.innerHeight - 320)}px`;
       menu.style.display = 'flex';
     }, 10);
   });
