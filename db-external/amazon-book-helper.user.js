@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Amazon Book Helper - .com full / .co.jp image only
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Floating helper on Amazon product pages. amazon.com: image, synopsis, ISBN-13, contributors. amazon.co.jp: image only.
+// @version      1.1
+// @description  Floating helper on Amazon product pages. amazon.com: image, synopsis, ISBN-13, contributors, page count, release date. amazon.co.jp: image only.
 // @match        https://www.amazon.com/*
 // @match        https://www.amazon.co.jp/*
 // @run-at       document-idle
@@ -33,6 +33,15 @@
       .replace(/\u00A0/g, ' ')
       .replace(/[ \t\f\v]+/g, ' ')
       .trim();
+  }
+
+  function cleanLabel(text) {
+    return normalizeWhitespace(text)
+      .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+      .replace(/[:：]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
   }
 
   function cleanImageUrl(url) {
@@ -141,15 +150,13 @@
       });
     });
 
-    let out = wrap.innerHTML
+    return wrap.innerHTML
       .replace(/<(span|font)\b[^>]*>/gi, '')
       .replace(/<\/(span|font)>/gi, '')
       .replace(/<p>\s*<\/p>/gi, '')
       .replace(/(?:<br\s*\/?>\s*){3,}/gi, '<br><br>')
       .replace(/\s*\n+\s*/g, '')
       .trim();
-
-    return out;
   }
 
   function htmlToPlainTextWithBreaks(html) {
@@ -233,24 +240,84 @@
     return { html: '', text: '' };
   }
 
-  function getIsbn13() {
-    const exactBullets = document.querySelector('#detailBullets_feature_div');
-    if (exactBullets) {
-      const items = exactBullets.querySelectorAll('li .a-list-item');
+  function labelMatches(label, wantedLabels) {
+    return wantedLabels.some(wanted => label.includes(wanted.toLowerCase()));
+  }
+
+  function getDetailValue(wantedLabels) {
+    const bulletContainers = [
+      document.querySelector('#detailBullets_feature_div'),
+      document.querySelector('#detailBulletsWrapper_feature_div')
+    ].filter(Boolean);
+
+    for (const container of bulletContainers) {
+      const items = container.querySelectorAll('li .a-list-item, li span.a-list-item');
+
       for (const item of items) {
         const bold = item.querySelector('.a-text-bold');
         if (!bold) continue;
 
-        const label = normalizeWhitespace(bold.textContent || '').toLowerCase();
-        if (!label.includes('isbn-13')) continue;
+        const label = cleanLabel(bold.textContent || '');
+        if (!labelMatches(label, wantedLabels)) continue;
 
-        const spans = item.querySelectorAll('span');
-        for (const span of spans) {
-          const txt = normalizeWhitespace(span.textContent || '');
-          const digits = txt.replace(/[^\d]/g, '');
-          if (digits.length === 13) return digits;
-        }
+        const clone = item.cloneNode(true);
+        clone.querySelectorAll('.a-text-bold, script, style').forEach(el => el.remove());
+
+        const value = normalizeWhitespace(clone.textContent || '')
+          .replace(/^[:：\s]+/, '')
+          .trim();
+
+        if (value) return value;
       }
+    }
+
+    const tableRows = document.querySelectorAll(
+      '#productDetails_detailBullets_sections1 tr, #productDetails_techSpec_section_1 tr, #productDetails_techSpec_section_2 tr, table tr'
+    );
+
+    for (const row of tableRows) {
+      const th = row.querySelector('th');
+      const td = row.querySelector('td');
+
+      if (!th || !td) continue;
+
+      const label = cleanLabel(th.textContent || '');
+      if (!labelMatches(label, wantedLabels)) continue;
+
+      const value = normalizeWhitespace(td.textContent || '');
+      if (value) return value;
+    }
+
+    const rpiNodes = document.querySelectorAll('[id^="rpi-attribute-"]');
+
+    for (const node of rpiNodes) {
+      const labelEl =
+        node.querySelector('.rpi-attribute-label') ||
+        node.querySelector('.a-size-base.a-color-secondary') ||
+        node.querySelector('span');
+
+      const label = cleanLabel(labelEl?.textContent || node.textContent || '');
+      if (!labelMatches(label, wantedLabels)) continue;
+
+      const clone = node.cloneNode(true);
+      clone.querySelectorAll('.rpi-attribute-label, .a-color-secondary, script, style').forEach(el => el.remove());
+
+      const value = normalizeWhitespace(clone.textContent || '')
+        .replace(/^[:：\s]+/, '')
+        .trim();
+
+      if (value) return value;
+    }
+
+    return '';
+  }
+
+  function getIsbn13() {
+    const detailValue = getDetailValue(['isbn-13']);
+
+    if (detailValue) {
+      const digits = detailValue.replace(/[^\d]/g, '');
+      if (digits.length === 13) return digits;
     }
 
     const wrapper = document.querySelector('#detailBulletsWrapper_feature_div');
@@ -266,37 +333,120 @@
     return '';
   }
 
-  function getContributorNames() {
-    const names = [];
-    const byline = document.querySelector('#bylineInfo');
+  function getPageCount() {
+    const raw = getDetailValue(['print length', 'pages']);
+    if (!raw) return '';
 
-    if (byline) {
-      const authorSpans = byline.querySelectorAll('.author');
-      authorSpans.forEach(authorSpan => {
-        const link = authorSpan.querySelector('a');
-        const name = normalizeWhitespace(link?.textContent || authorSpan.childNodes[0]?.textContent || '');
-        if (name) names.push(name);
-      });
-    }
+    const match = raw.match(/(\d[\d,]*)\s*(?:pages?|p\.)?/i);
+    if (!match) return '';
 
-    if (!names.length) {
-      document.querySelectorAll('#bylineInfo a, #bylineInfo_feature_div a, .author a').forEach(a => {
-        const txt = normalizeWhitespace(a.textContent || '')
-          .replace(/^by\s+/i, '')
-          .replace(/\s+Visit Amazon'?s.*$/i, '')
-          .trim();
-
-        if (
-          txt &&
-          !/search results|learn more|format|kindle|paperback|hardcover/i.test(txt)
-        ) {
-          names.push(txt);
-        }
-      });
-    }
-
-    return [...new Set(names)];
+    return match[1].replace(/[^\d]/g, '');
   }
+
+  function parseAmazonDateToIso(rawDate) {
+    if (!rawDate) return '';
+
+    const cleaned = normalizeWhitespace(rawDate)
+      .replace(/\./g, '')
+      .replace(/,/g, '')
+      .trim();
+
+    const months = {
+      january: '01',
+      jan: '01',
+      february: '02',
+      feb: '02',
+      march: '03',
+      mar: '03',
+      april: '04',
+      apr: '04',
+      may: '05',
+      june: '06',
+      jun: '06',
+      july: '07',
+      jul: '07',
+      august: '08',
+      aug: '08',
+      september: '09',
+      sept: '09',
+      sep: '09',
+      october: '10',
+      oct: '10',
+      november: '11',
+      nov: '11',
+      december: '12',
+      dec: '12'
+    };
+
+    const match = cleaned.match(/^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})$/);
+    if (match) {
+      const month = months[match[1].toLowerCase()];
+      const day = String(match[2]).padStart(2, '0');
+      const year = match[3];
+
+      if (month) return `${year}-${month}-${day}`;
+    }
+
+    const parsed = new Date(rawDate);
+    if (!Number.isNaN(parsed.getTime())) {
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    return '';
+  }
+
+  function getReleaseDateIso() {
+    const raw = getDetailValue(['publication date', 'release date']);
+    return parseAmazonDateToIso(raw);
+  }
+
+    function getContributorNames() {
+        const names = [];
+        const byline = document.querySelector('#bylineInfo');
+        const excludedRoles = /\b(translator|letterer|editor)\b/i;
+        let checkedStructuredByline = false;
+
+        if (byline) {
+            const authorSpans = byline.querySelectorAll('.author');
+
+            if (authorSpans.length) checkedStructuredByline = true;
+
+            authorSpans.forEach(authorSpan => {
+                const link = authorSpan.querySelector('a');
+                const roleText = normalizeWhitespace(authorSpan.querySelector('.contribution')?.textContent || '');
+                const name = normalizeWhitespace(link?.textContent || authorSpan.childNodes[0]?.textContent || '');
+
+                if (!name) return;
+                if (excludedRoles.test(roleText)) return;
+
+                names.push(name);
+            });
+        }
+
+        if (!checkedStructuredByline && !names.length) {
+            document.querySelectorAll('#bylineInfo a, #bylineInfo_feature_div a, .author a').forEach(a => {
+                const authorSpan = a.closest('.author');
+                const roleText = normalizeWhitespace(authorSpan?.querySelector('.contribution')?.textContent || '');
+                const txt = normalizeWhitespace(a.textContent || '')
+                .replace(/^by\s+/i, '')
+                .replace(/\s+Visit Amazon'?s.*$/i, '')
+                .trim();
+
+                if (
+                    txt &&
+                    !excludedRoles.test(roleText) &&
+                    !/search results|learn more|format|kindle|paperback|hardcover/i.test(txt)
+                ) {
+                    names.push(txt);
+                }
+            });
+        }
+
+        return [...new Set(names)];
+    }
 
   async function copyPlainText(text) {
     if (!text) return false;
@@ -499,7 +649,9 @@
       synopsisHtml: synopsis.html,
       synopsisText: synopsis.text,
       authors: authors.join(', '),
-      isbn13: getIsbn13()
+      isbn13: getIsbn13(),
+      pageCount: getPageCount(),
+      releaseDateIso: getReleaseDateIso()
     };
   }
 
@@ -565,11 +717,21 @@
             <div class="tm-label">ISBN-13</div>
             <div class="tm-preview" data-field="isbn13"></div>
           </div>
+          <div class="tm-row">
+            <div class="tm-label">Page Count</div>
+            <div class="tm-preview" data-field="pageCount"></div>
+          </div>
+          <div class="tm-row">
+            <div class="tm-label">Release Date ISO</div>
+            <div class="tm-preview" data-field="releaseDateIso"></div>
+          </div>
           <div class="tm-actions">
             <button type="button" data-action="copy-image">Copy Image URL</button>
             <button type="button" data-action="copy-synopsis-rich">Copy Synopsis</button>
             <button type="button" data-action="copy-authors">Copy Contributors</button>
             <button type="button" data-action="copy-isbn13">Copy ISBN-13</button>
+            <button type="button" data-action="copy-page-count">Copy Page Count</button>
+            <button type="button" data-action="copy-release-date">Copy Release Date</button>
           </div>
           <div class="tm-status" data-field="status"></div>
           <div class="tm-mini">After switching edition/format on the page, press Refresh.</div>
@@ -598,16 +760,21 @@
     const synopsisEl = panel.querySelector('[data-field="synopsis"]');
     const authorsEl = panel.querySelector('[data-field="authors"]');
     const isbn13El = panel.querySelector('[data-field="isbn13"]');
+    const pageCountEl = panel.querySelector('[data-field="pageCount"]');
+    const releaseDateIsoEl = panel.querySelector('[data-field="releaseDateIso"]');
     const statusEl = panel.querySelector('[data-field="status"]');
     const reopenPill = document.getElementById(REOPEN_ID);
 
     function render() {
       packet = buildPacket();
+
       if (titleEl) titleEl.textContent = packet.title || '(not found)';
       if (imageEl) imageEl.textContent = packet.imageUrl || '(not found)';
       if (synopsisEl) synopsisEl.textContent = packet.synopsisText || '(not found)';
       if (authorsEl) authorsEl.textContent = packet.authors || '(not found)';
       if (isbn13El) isbn13El.textContent = packet.isbn13 || '(not found)';
+      if (pageCountEl) pageCountEl.textContent = packet.pageCount || '(not found)';
+      if (releaseDateIsoEl) releaseDateIsoEl.textContent = packet.releaseDateIso || '(not found)';
       if (statusEl) statusEl.textContent = '';
     }
 
@@ -653,13 +820,25 @@
 
       if (action === 'copy-authors') {
         const ok = await copyPlainText(packet.authors);
-        if (statusEl) statusEl.textContent = ok ? 'Contributors copied.' : 'Could not copy contributors.';
+        if (statusEl) statusEl.textContent = ok ? `${packet.authors} copied.` : 'Could not copy contributors.';
         return;
       }
 
       if (action === 'copy-isbn13') {
         const ok = await copyPlainText(packet.isbn13);
-        if (statusEl) statusEl.textContent = ok ? 'ISBN-13 copied.' : 'Could not copy ISBN-13.';
+        if (statusEl) statusEl.textContent = ok ? `${packet.isbn13} copied.` : 'Could not copy ISBN-13.';
+        return;
+      }
+
+      if (action === 'copy-page-count') {
+        const ok = await copyPlainText(packet.pageCount);
+        if (statusEl) statusEl.textContent = ok ? `${packet.pageCount} copied.` : 'Could not copy page count.';
+        return;
+      }
+
+      if (action === 'copy-release-date') {
+        const ok = await copyPlainText(packet.releaseDateIso);
+        if (statusEl) statusEl.textContent = ok ? `${packet.releaseDateIso} copied.` : 'Could not copy release date.';
       }
     });
   }
