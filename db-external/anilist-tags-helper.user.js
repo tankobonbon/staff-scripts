@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         AniList Tags → Shopify Themes Helper
+// @name         Themes Auto-paster + Anilist Helper
 // @namespace    http://tampermonkey.net/
 // @version      1.1
 // @description  Copy AniList tags or AniList ID, then paste tags into Shopify collection Themes list metafield.
