@@ -105,6 +105,15 @@ Install (make sure you have Tampermonkey already): https://github.com/tankobonbo
 
 ---
 
+## Leading Zero Bulk Editor
+
+Install (make sure you have Tampermonkey already): https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-legacy/leading-zero-editor.user.js
+
+- Adds a button to change standard product title volumes from Vol. 1 to Vol. 01 in Shopify bulk editor.
+
+
+---
+
 
 # — Usage
 
