@@ -13,7 +13,6 @@
 (function () {
   'use strict';
 
-  // NO TOUCHY THE CHAOTIC OMNIBUS INTERNAL RANGES.
   const BUTTON_ID = 'tbb-pad-volume-button';
   const STATUS_ID = 'tbb-pad-volume-status';
 
@@ -47,8 +46,6 @@
   }
 
   function padStandardVolumeNumber(title) {
-    // KEEP VOL. 1-3 ALONE. THAT IS NOT THE NUMBER WE ARE FIXING TODAY.
-    // THIS ONLY CATCHES A SINGLE-DIGIT VOLUME FOLLOWED BY END, SPACE, OR SAFE PUNCTUATION.
     return title.replace(
       /\bVol\. ([1-9])(?=$|[\s),:\/])/g,
       (_, digit) => `Vol. 0${digit}`
@@ -167,7 +164,6 @@
     buttonGroup.insertBefore(wrapper, buttonGroup.lastElementChild);
   }
 
-  // SHOPIFY IS A SPA. THE BUTTON MAY NEED TO RESPAWN AFTER THE PAGE REBUILDS ITSELF.
   const observer = new MutationObserver(() => {
     createButton();
   });
