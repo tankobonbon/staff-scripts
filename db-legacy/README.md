@@ -72,7 +72,7 @@ Features:
 - Moves **SKU / Barcode / Handle** fields together.
 - Adds **Autofill SKU → Barcode + Handle** button.
 - Adds a **Scroll to Top** button at the bottom of the page.
-
+- Adds a helper for the **Page Count / Volume / Chapters** metafield.
 
 ---
 
