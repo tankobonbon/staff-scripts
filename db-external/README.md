@@ -183,11 +183,17 @@ Install (make sure you have Tampermonkey already):
 - https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/yenpress-book-helper.user.js
 - https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/sevenseas-book-helper.user.js
 - https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/kodansha-book-helper.user.js
+- https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/square-enix-book-helper.user.js
+- https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/tokyopop-book-helper.user.js
+- https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/titan-manga-book-helper.user.js
+- https://github.com/tankobonbon/staff-scripts/raw/refs/heads/main/db-external/kodama-book-helper.user.js
 
 Feature:
 
 - Displays a compact floating copy-helper on the bottom-right of the page.
 - One-click formats and copies:
+  - Synopsis
+  - Author
   - Page count
   - Age rating
   - Publisher
@@ -197,7 +203,7 @@ Feature:
  
 Note:
 
-- VIZ and Yen doesn't have ISBN and Release date buttons at the moment.
+- Kodansha doesn't list authors in full, which Kodama and Tokyopop don't list authors at all, but the button still exists in case it gets added in the future.
 - More publishers are planned to be added in the future.
 
 
