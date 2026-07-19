@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopify Product Edit - Collection Modal Hotfix
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0-beta.1
+// @version      0.2.1-beta.1
 // @description  Keeps Shopify's new Add collection condition panel visible and automatically creates an exact Vendor condition from the current product.
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
@@ -195,7 +195,7 @@
 
     async function fillVendorValue(row, vendor) {
         const input = await waitFor(() => row.querySelector('input[aria-label="Vendor values"]'));
-        if (!input) return false;
+        if (!input) return null;
 
         input.focus();
         setNativeInputValue(input, vendor);
@@ -209,20 +209,89 @@
             await sleep(150);
         }
 
-        input.blur();
+        return normalizeText(input.value) === vendor ? input : null;
+    }
 
-        return normalizeText(input.value) === vendor;
+    function findVisibleAddVendorAction(vendor) {
+        const expected = `Add "${vendor}"`;
+        const candidates = document.querySelectorAll(
+            's-internal-picker-action, button, [role="option"], [role="menuitem"], [role="button"]'
+        );
+
+        return Array.from(candidates).find((element) => {
+            return normalizeText(element.textContent) === expected && isVisible(element);
+        }) || null;
+    }
+
+    async function commitVendorValue(collectionRoot, input, vendor) {
+        let action = await waitFor(() => findVisibleAddVendorAction(vendor), 1800, 40);
+
+        if (action) {
+            action.click();
+            await waitFor(() => !action.isConnected || !isVisible(action), 1800, 40);
+            await sleep(200);
+            return true;
+        }
+
+        input.focus();
+        input.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            composed: true,
+        }));
+        input.dispatchEvent(new KeyboardEvent('keyup', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            composed: true,
+        }));
+        await sleep(250);
+
+        action = findVisibleAddVendorAction(vendor);
+        if (action) {
+            action.click();
+            await sleep(200);
+        }
+
+        const row = findVendorConditionRow(collectionRoot);
+        return Boolean(row);
+    }
+
+    function rowHasVendorValue(row, vendor) {
+        if (!row) return false;
+
+        const inputValue = normalizeText(
+            row.querySelector('input[aria-label="Vendor values"]')?.value
+        );
+        if (inputValue === vendor) return true;
+
+        return Array.from(row.querySelectorAll('*')).some((element) => {
+            if (element.children.length > 0) return false;
+            return normalizeText(element.textContent) === vendor;
+        });
     }
 
     function vendorConditionAlreadyComplete(collectionRoot, vendor) {
         const row = findVendorConditionRow(collectionRoot);
         if (!row) return false;
 
-        const relationButton = getRelationButton(row);
-        const input = row.querySelector('input[aria-label="Vendor values"]');
+        return relationIs(getRelationButton(row), 'is equal to') &&
+            rowHasVendorValue(row, vendor);
+    }
 
-        return relationIs(relationButton, 'is equal to') &&
-            normalizeText(input?.value) === vendor;
+    async function relationRemainsEqual(collectionRoot) {
+        await sleep(250);
+        let row = findVendorConditionRow(collectionRoot);
+        if (!relationIs(getRelationButton(row), 'is equal to')) return false;
+
+        await sleep(400);
+        row = findVendorConditionRow(collectionRoot);
+        return relationIs(getRelationButton(row), 'is equal to');
     }
 
     async function ensureExactVendorCondition(collectionRoot, vendor) {
@@ -271,17 +340,18 @@
 
             row = findVendorConditionRow(collectionRoot) || row;
 
-            const valueFilled = await fillVendorValue(row, vendor);
-            if (!valueFilled) return;
+            const input = await fillVendorValue(row, vendor);
+            if (!input) return;
+
+            const committed = await commitVendorValue(collectionRoot, input, vendor);
+            if (!committed) return;
 
             row = findVendorConditionRow(collectionRoot) || row;
 
             const equalsSet = await setRelation(row, EQUALS_VALUE, 'is equal to');
             if (!equalsSet) return;
 
-            await sleep(150);
-
-            if (vendorConditionAlreadyComplete(collectionRoot, vendor)) {
+            if (await relationRemainsEqual(collectionRoot)) {
                 collectionRoot.setAttribute(AUTOFILLED_ATTR, vendor);
             }
         } catch (error) {
