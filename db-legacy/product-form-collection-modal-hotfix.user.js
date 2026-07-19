@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Shopify Product Edit - Collection Modal Hotfix
 // @namespace    http://tampermonkey.net/
-// @version      0.2.1-beta.1
-// @description  Keeps Shopify's new Add collection condition panel visible and automatically creates an exact Vendor condition from the current product.
+// @version      0.3.0-beta.1
+// @description  Keeps Shopify's Add collection condition panels visible and automatically creates an exact Vendor condition only for Series collections.
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
 // @grant        none
@@ -15,12 +15,19 @@
 
     const HIDDEN_ATTR = 'data-tm-hidden';
     const AUTOFILLED_ATTR = 'data-tbb-vendor-condition-autofilled';
+    const ORIGIN_ATTR = 'data-tbb-collection-origin';
     const VENDOR_ATTRIBUTE_VALUE = 'CollectionSourceInclusionConditionProductVendor';
     const STARTS_WITH_VALUE = 'STARTS_WITH';
     const EQUALS_VALUE = 'EQUALS';
+    const ORIGIN_TTL_MS = 120000;
 
     let applyTimer = null;
     let automationBusy = false;
+    let pendingMetafieldOrigin = '';
+    let pendingMetafieldOriginAt = 0;
+
+    const seenCollectionRoots = new WeakSet();
+    const originStack = [];
 
     function normalizeText(value) {
         return (value || '').replace(/\s+/g, ' ').trim();
@@ -75,23 +82,103 @@
         return null;
     }
 
-    function findCollectionEditorRoot() {
-        const closeButton = document.getElementById('activity-dialog-close-button');
-        const fromCloseButton = ascendToCollectionEditor(closeButton);
-        if (fromCloseButton) return fromCloseButton;
+    function findCollectionEditorRoots() {
+        const roots = [];
+        const seen = new Set();
+        const headings = document.querySelectorAll('h1, [aria-label="Add collection"]');
 
-        const heading = Array.from(document.querySelectorAll('h1, [aria-label="Add collection"]')).find((element) => {
-            return normalizeText(element.getAttribute?.('aria-label')) === 'Add collection' ||
-                normalizeText(element.textContent) === 'Add collection';
+        for (const heading of headings) {
+            const isAddCollection =
+                normalizeText(heading.getAttribute?.('aria-label')) === 'Add collection' ||
+                normalizeText(heading.textContent) === 'Add collection';
+
+            if (!isAddCollection) continue;
+
+            const root = ascendToCollectionEditor(heading);
+            if (!root || seen.has(root)) continue;
+
+            seen.add(root);
+            roots.push(root);
+        }
+
+        return roots;
+    }
+
+    function captureMetafieldOrigin(event) {
+        const path = typeof event.composedPath === 'function'
+            ? event.composedPath()
+            : [event.target];
+
+        for (const node of path) {
+            if (!(node instanceof Element)) continue;
+
+            const ariaLabel = normalizeText(node.getAttribute('aria-label'));
+            const match = ariaLabel.match(/^Edit\s+(.+?)\s+metafield$/i);
+
+            if (match) {
+                pendingMetafieldOrigin = normalizeText(match[1]);
+                pendingMetafieldOriginAt = Date.now();
+                return;
+            }
+        }
+    }
+
+    function consumePendingMetafieldOrigin() {
+        if (!pendingMetafieldOrigin) return '';
+
+        if (Date.now() - pendingMetafieldOriginAt > ORIGIN_TTL_MS) {
+            pendingMetafieldOrigin = '';
+            pendingMetafieldOriginAt = 0;
+            return '';
+        }
+
+        const origin = pendingMetafieldOrigin;
+        pendingMetafieldOrigin = '';
+        pendingMetafieldOriginAt = 0;
+        return origin;
+    }
+
+    function assignCollectionOrigins(collectionRoots) {
+        collectionRoots.forEach((root, index) => {
+            const existingOrigin = normalizeText(root.getAttribute(ORIGIN_ATTR));
+
+            if (existingOrigin) {
+                originStack[index] = existingOrigin;
+                seenCollectionRoots.add(root);
+                return;
+            }
+
+            const isNewRoot = !seenCollectionRoots.has(root);
+            let origin = '';
+
+            if (isNewRoot) {
+                origin = consumePendingMetafieldOrigin();
+            }
+
+            if (!origin) {
+                origin = originStack[index] || '';
+            }
+
+            if (origin) {
+                root.setAttribute(ORIGIN_ATTR, origin);
+                originStack[index] = origin;
+            }
+
+            seenCollectionRoots.add(root);
         });
 
-        return ascendToCollectionEditor(heading);
+        originStack.length = Math.max(originStack.length, collectionRoots.length);
     }
 
     function restoreHiddenCollectionCards(collectionRoot) {
         collectionRoot.querySelectorAll(`[${HIDDEN_ATTR}="true"]`).forEach((element) => {
             element.removeAttribute(HIDDEN_ATTR);
         });
+    }
+
+    function isSeriesCollectionEditor(collectionRoot) {
+        const origin = normalizeText(collectionRoot.getAttribute(ORIGIN_ATTR)).toLowerCase();
+        return origin === 'series' || origin === 'series collection';
     }
 
     function findCurrentProductVendor(collectionRoot) {
@@ -362,14 +449,22 @@
     }
 
     async function applyFix() {
-        const collectionRoot = findCollectionEditorRoot();
-        if (!collectionRoot) return;
+        const collectionRoots = findCollectionEditorRoots();
+        if (!collectionRoots.length) return;
 
-        restoreHiddenCollectionCards(collectionRoot);
+        assignCollectionOrigins(collectionRoots);
 
-        const vendor = findCurrentProductVendor(collectionRoot);
-        if (vendor) {
-            await ensureExactVendorCondition(collectionRoot, vendor);
+        for (const collectionRoot of collectionRoots) {
+            restoreHiddenCollectionCards(collectionRoot);
+        }
+
+        for (const collectionRoot of collectionRoots) {
+            if (!isSeriesCollectionEditor(collectionRoot)) continue;
+
+            const vendor = findCurrentProductVendor(collectionRoot);
+            if (vendor) {
+                await ensureExactVendorCondition(collectionRoot, vendor);
+            }
         }
     }
 
@@ -388,9 +483,14 @@
         attributeFilter: [HIDDEN_ATTR],
     });
 
-    document.addEventListener('click', scheduleApply, true);
+    document.addEventListener('click', (event) => {
+        captureMetafieldOrigin(event);
+        scheduleApply();
+    }, true);
+
     window.setInterval(() => {
         void applyFix();
     }, 500);
+
     scheduleApply();
 })();
