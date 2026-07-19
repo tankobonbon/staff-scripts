@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Shopify Product Edit - Collection Modal Hotfix
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1-beta.1
-// @description  Keeps Shopify's new Add collection condition panel visible beside the existing product-form cleaner.
+// @version      0.2.0-beta.1
+// @description  Keeps Shopify's new Add collection condition panel visible and automatically creates an exact Vendor condition from the current product.
 // @match        https://admin.shopify.com/store/tankobonbon-manga-book-store/products/*
 // @run-at       document-idle
 // @grant        none
@@ -14,10 +14,42 @@
     'use strict';
 
     const HIDDEN_ATTR = 'data-tm-hidden';
+    const AUTOFILLED_ATTR = 'data-tbb-vendor-condition-autofilled';
+    const VENDOR_ATTRIBUTE_VALUE = 'CollectionSourceInclusionConditionProductVendor';
+    const STARTS_WITH_VALUE = 'STARTS_WITH';
+    const EQUALS_VALUE = 'EQUALS';
+
     let applyTimer = null;
+    let automationBusy = false;
 
     function normalizeText(value) {
         return (value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function sleep(ms) {
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    async function waitFor(getValue, timeout = 3000, interval = 50) {
+        const startedAt = Date.now();
+
+        while (Date.now() - startedAt < timeout) {
+            const value = getValue();
+            if (value) return value;
+            await sleep(interval);
+        }
+
+        return null;
+    }
+
+    function isVisible(element) {
+        if (!element?.isConnected) return false;
+
+        const style = window.getComputedStyle(element);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
     }
 
     function hasAddCollectionHeading(root) {
@@ -62,16 +94,220 @@
         });
     }
 
-    function applyFix() {
+    function findCurrentProductVendor(collectionRoot) {
+        const fields = document.querySelectorAll('s-internal-single-picker-field[label="Vendor"]');
+
+        for (const field of fields) {
+            if (collectionRoot.contains(field)) continue;
+
+            const value = normalizeText(
+                field.querySelector('s-internal-single-picker-field-value')?.textContent
+            );
+
+            if (value && value !== 'None') return value;
+        }
+
+        return '';
+    }
+
+    function getLinkedPopover(trigger) {
+        const id = trigger?.getAttribute('commandfor') ||
+            trigger?.getAttribute('aria-controls') ||
+            trigger?.getAttribute('aria-owns');
+
+        return id ? document.getElementById(id) : null;
+    }
+
+    async function choosePickerOption(trigger, optionValue, verify) {
+        if (!trigger) return false;
+
+        trigger.click();
+
+        const option = await waitFor(() => {
+            const linkedPopover = getLinkedPopover(trigger);
+            return linkedPopover?.querySelector(`s-internal-picker-option[value="${optionValue}"]`) || null;
+        });
+
+        if (!option) return false;
+
+        option.click();
+
+        if (!verify) {
+            await sleep(100);
+            return true;
+        }
+
+        return Boolean(await waitFor(verify));
+    }
+
+    function findVisibleAddConditionButton(collectionRoot) {
+        return Array.from(collectionRoot.querySelectorAll('button')).find((button) => {
+            return normalizeText(button.textContent) === 'Add condition' && isVisible(button);
+        }) || null;
+    }
+
+    function findVendorConditionRow(collectionRoot) {
+        return Array.from(collectionRoot.querySelectorAll('[data-condition-row="true"]')).find((row) => {
+            return row.querySelector('button[aria-label="Condition attribute: Vendor"]');
+        }) || null;
+    }
+
+    function getRelationButton(row) {
+        return row?.querySelector('button[aria-label^="Condition relation:"]') || null;
+    }
+
+    function relationIs(button, text) {
+        return normalizeText(button?.getAttribute('aria-label')) === `Condition relation: ${text}` ||
+            normalizeText(button?.textContent) === text;
+    }
+
+    async function setRelation(row, optionValue, expectedText) {
+        let button = getRelationButton(row);
+        if (!button) return false;
+        if (relationIs(button, expectedText)) return true;
+
+        return choosePickerOption(button, optionValue, () => {
+            button = getRelationButton(row);
+            return button && relationIs(button, expectedText);
+        });
+    }
+
+    function setNativeInputValue(input, value) {
+        const setter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype,
+            'value'
+        )?.set;
+
+        if (setter) {
+            setter.call(input, value);
+        } else {
+            input.value = value;
+        }
+
+        input.dispatchEvent(new InputEvent('input', {
+            bubbles: true,
+            composed: true,
+            inputType: 'insertText',
+            data: value,
+        }));
+        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    }
+
+    async function fillVendorValue(row, vendor) {
+        const input = await waitFor(() => row.querySelector('input[aria-label="Vendor values"]'));
+        if (!input) return false;
+
+        input.focus();
+        setNativeInputValue(input, vendor);
+        await sleep(150);
+
+        if (normalizeText(input.value) !== vendor) {
+            input.focus();
+            input.select();
+            document.execCommand('insertText', false, vendor);
+            input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+            await sleep(150);
+        }
+
+        input.blur();
+
+        return normalizeText(input.value) === vendor;
+    }
+
+    function vendorConditionAlreadyComplete(collectionRoot, vendor) {
+        const row = findVendorConditionRow(collectionRoot);
+        if (!row) return false;
+
+        const relationButton = getRelationButton(row);
+        const input = row.querySelector('input[aria-label="Vendor values"]');
+
+        return relationIs(relationButton, 'is equal to') &&
+            normalizeText(input?.value) === vendor;
+    }
+
+    async function ensureExactVendorCondition(collectionRoot, vendor) {
+        if (!vendor || automationBusy) return;
+
+        if (vendorConditionAlreadyComplete(collectionRoot, vendor)) {
+            collectionRoot.setAttribute(AUTOFILLED_ATTR, vendor);
+            return;
+        }
+
+        if (collectionRoot.getAttribute(AUTOFILLED_ATTR) === vendor) return;
+
+        const existingVendorRow = findVendorConditionRow(collectionRoot);
+        const existingValue = normalizeText(
+            existingVendorRow?.querySelector('input[aria-label="Vendor values"]')?.value
+        );
+
+        if (existingValue && existingValue !== vendor) {
+            collectionRoot.setAttribute(AUTOFILLED_ATTR, 'manual');
+            return;
+        }
+
+        automationBusy = true;
+
+        try {
+            let row = existingVendorRow;
+
+            if (!row) {
+                const addConditionButton = findVisibleAddConditionButton(collectionRoot);
+                if (!addConditionButton) return;
+
+                const selected = await choosePickerOption(
+                    addConditionButton,
+                    VENDOR_ATTRIBUTE_VALUE,
+                    () => findVendorConditionRow(collectionRoot)
+                );
+
+                if (!selected) return;
+                row = findVendorConditionRow(collectionRoot);
+            }
+
+            if (!row) return;
+
+            const startsWithSet = await setRelation(row, STARTS_WITH_VALUE, 'starts with');
+            if (!startsWithSet) return;
+
+            row = findVendorConditionRow(collectionRoot) || row;
+
+            const valueFilled = await fillVendorValue(row, vendor);
+            if (!valueFilled) return;
+
+            row = findVendorConditionRow(collectionRoot) || row;
+
+            const equalsSet = await setRelation(row, EQUALS_VALUE, 'is equal to');
+            if (!equalsSet) return;
+
+            await sleep(150);
+
+            if (vendorConditionAlreadyComplete(collectionRoot, vendor)) {
+                collectionRoot.setAttribute(AUTOFILLED_ATTR, vendor);
+            }
+        } catch (error) {
+            console.error('[TBB] Vendor condition automation failed:', error);
+        } finally {
+            automationBusy = false;
+        }
+    }
+
+    async function applyFix() {
         const collectionRoot = findCollectionEditorRoot();
         if (!collectionRoot) return;
 
         restoreHiddenCollectionCards(collectionRoot);
+
+        const vendor = findCurrentProductVendor(collectionRoot);
+        if (vendor) {
+            await ensureExactVendorCondition(collectionRoot, vendor);
+        }
     }
 
     function scheduleApply() {
         window.clearTimeout(applyTimer);
-        applyTimer = window.setTimeout(applyFix, 0);
+        applyTimer = window.setTimeout(() => {
+            void applyFix();
+        }, 0);
     }
 
     const observer = new MutationObserver(scheduleApply);
@@ -83,6 +319,8 @@
     });
 
     document.addEventListener('click', scheduleApply, true);
-    window.setInterval(applyFix, 500);
+    window.setInterval(() => {
+        void applyFix();
+    }, 500);
     scheduleApply();
 })();
